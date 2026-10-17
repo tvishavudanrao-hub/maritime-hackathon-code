@@ -1,4 +1,4 @@
-// Run with: node --test tests/   (also run from tests/test_playback_js.py)
+// Run with: node --test tests/*.test.js   (also run from tests/test_playback_js.py)
 const test = require('node:test');
 const assert = require('node:assert');
 const P = require('../playback.js');
