@@ -14,7 +14,7 @@ const LANES = [
 const TOGGLES = ['blockBab', 'threatBab', 'coverBab', 'blockSuez', 'blockHormuz', 'closeWestAfrica', 'stormCape', 'liveWeather', 'autoNews', 'allowUninsured'];
 const state = {
   fleet: null, network: null, ops: {voyages: [], sel: null, meta: null, busy: null, error: null},
-  sim: {playing: false, speed: 'real', offsetH: 0},
+  sim: {playing: false, speed: 24, speedNow: 24, offsetH: 0},   // speeds are simulated hours per real second
   ship: 'aurora', origin: 'SIN', destination: 'RTM', priority: 'balanced', conditions: 'today', today: null,
   cargo: 'retail', weights: null,   // weights = null → use the preset's weights
   fuel: 2500, deadline: '', deadlineType: 'hard', berth: '',
@@ -1400,13 +1400,7 @@ function drawOps() {
       g.appendChild(svgEl('path', {d: pathString(v.path), fill: 'none', stroke: '#d97706', 'stroke-width': 2.2, opacity: .85}));
       if (v.replan_path) g.appendChild(addTitle(svgEl('path', {d: pathString(v.replan_path), fill: 'none', stroke: '#0d9488', 'stroke-width': 2.4, 'stroke-dasharray': '6 5'}), `Recommended re-plan: ${v.replan_corridor}`));
     }
-    if (lc.lat == null || true) continue;   // ships are drawn by the live fleet layer
-    const [x, y] = project([lc.lat, lc.lon]);
-    const m = addTitle(svgEl('path', {d: `M${x},${y - 7} l7,7 l-7,7 l-7,-7 z`, fill: v.open_alerts.length ? '#ffb07a' : '#f5bf75', stroke: '#ffffff', 'stroke-width': 1.2, style: 'cursor:pointer'}),
-      `${v.ship_name} (${v.id}) · ${lc.position_source} position · ${v.open_alerts.length ? v.open_alerts.length + ' open alert(s)' : 'no open alerts'}`);
-    m.addEventListener('click', () => { state.ops.sel = v.id; renderOps(); drawOps(); $('opsPanel').scrollIntoView({behavior: 'smooth', block: 'nearest'}); });
-    g.appendChild(m);
-    const t = svgEl('text', {x: x + 10, y: y + 4, class: 'map-port-label', style: 'font-size:10px'}); t.textContent = v.ship_name.replace('MV ', ''); g.appendChild(t);
+    // ships themselves are drawn by the live fleet layer (drawVessels)
   }
 }
 
@@ -1532,9 +1526,12 @@ function renderOverview() {
   drawVessels();
   fillSearch();
 }
-// ---- live fleet: each approved ship sails along its committed route, in real time or at playback speed
-const SIM_SPEEDS = {real: 1 / 3600, hour: 1, six: 6, day: 24};   // simulated hours per real second
+// ---- live fleet: each approved ship sails along its committed route, in real time or at playback speed.
+// The clock is state.sim.offsetH (simulated hours added to "now"); playback.js owns the maths. Ships are moved
+// by a requestAnimationFrame loop that only sets attributes, so the map layer is never rebuilt per frame.
+const PB = window.TLPlayback;
 function simHoursNow() { return state.sim.offsetH; }
+function activeVoyages() { return (state.ops.voyages || []).filter(v => ['approved', 'underway'].includes(v.status)); }
 function pathCum(path) {
   const c = [0];
   for (let i = 1; i < path.length; i++) c.push(c[i - 1] + haversineNm(path[i - 1], path[i]));
@@ -1558,71 +1555,107 @@ function livePosition(v) {
   const pos = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   return {pos, frac, i, a, b, arrived: frac >= 1, departed: frac > 0};
 }
+let vesselNodes = [];   // SVG nodes built by drawVessels and moved every frame by placeVessel
+function vesselTitle(n, live) {
+  const v = n.v, pct = live ? ` · ${(live.frac * 100).toFixed(0)}% of route` : '';
+  return `${v.ship.name} · ${v.label} · ${v.where}${pct}${n.voyage ? ` · ETA ${fmtEta((n.voyage.last_check || {}).eta || n.voyage.eta)} UTC` : ''}${state.sim.offsetH ? ' · simulated playback position' : ' · position from the approved schedule'}`;
+}
+function placeVessel(n) {
+  let loc = n.v.loc, ang = -90, live = null;
+  if (n.voyage?.path) {
+    live = livePosition(n.voyage);
+    if (live) {
+      loc = live.pos;
+      const [ax, ay] = project(live.a), [bx, by] = project(live.b);
+      ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
+    }
+  }
+  const [x, y] = project(loc);
+  const key = live ? `${Math.round(live.frac * 100)}${live.arrived}` : '';
+  if (Math.abs(x - n.x) < 0.25 && Math.abs(y - n.y) < 0.25 && key === n.key) return;   // moved less than a quarter pixel
+  n.x = x; n.y = y; n.key = key;
+  n.grp.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
+  if (n.halo) { n.halo.setAttribute('cx', x.toFixed(1)); n.halo.setAttribute('cy', y.toFixed(1)); }
+  if (n.voyage) n.icon.setAttribute('transform', `rotate(${ang.toFixed(1)})`);
+  if (live && n.done) n.done.setAttribute('d', pathString(n.voyage.path.slice(0, live.i).concat([live.pos])));
+  const label = n.v.ship.name + (live?.arrived ? ' · arrived' : '');
+  if (n.text.textContent !== label) { n.text.textContent = label; n.pill.setAttribute('width', label.length * 6.6 + 18); }
+  n.title.textContent = vesselTitle(n, live);
+}
+function moveVessels() { for (const n of vesselNodes) placeVessel(n); }
 function drawVessels() {
-  const g = $('vesselSvg'); if (!g || !state.fleet) return; g.innerHTML = '';
+  const g = $('vesselSvg'); if (!g || !state.fleet) return; g.innerHTML = ''; vesselNodes = [];
   const f = $('vesselFilter').value, onOps = document.body.dataset.page === 'operations';
   for (const v of vesselStatus()) {
     if (f !== 'all' && v.status !== f) continue;
     if (onOps && !v.voyage) continue;
-    const col = STATUS_COLOR[v.status];
-    let loc = v.loc, ang = -90, live = null;
+    const col = STATUS_COLOR[v.status], n = {v, voyage: v.voyage, x: NaN, y: NaN, key: ''};
     if (v.voyage?.path) {
-      live = livePosition(v.voyage);
       g.appendChild(svgEl('path', {d: pathString(v.voyage.path), fill: 'none', stroke: col, 'stroke-width': 1.6, 'stroke-dasharray': '4 5', opacity: .7}));
-      if (live) {
-        loc = live.pos;
-        const done = v.voyage.path.slice(0, live.i).concat([live.pos]);
-        if (done.length > 1) g.appendChild(svgEl('path', {d: pathString(done), fill: 'none', stroke: col, 'stroke-width': 2.6, opacity: .95, 'stroke-linecap': 'round'}));
-        const [ax, ay] = project(live.a), [bx, by] = project(live.b);
-        ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
-      }
+      n.done = g.appendChild(svgEl('path', {fill: 'none', stroke: col, 'stroke-width': 2.6, opacity: .95, 'stroke-linecap': 'round'}));
     }
-    const [x, y] = project(loc);
-    if (v.status === 'decision') g.appendChild(svgEl('circle', {cx: x, cy: y, r: 26, fill: '#ef444433'}));
-    const grp = svgEl('g', {class: 'vessel-label', style: 'cursor:pointer'});
-    if (v.voyage) {   // ship icon pointing along the route
-      grp.appendChild(svgEl('path', {d: 'M11,0 L-7,-6.5 L-3.5,0 L-7,6.5 Z', transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${ang.toFixed(1)})`, fill: col, stroke: '#fff', 'stroke-width': 1.5, filter: 'url(#cardShadow)'}));
-    } else {
-      grp.appendChild(svgEl('circle', {cx: x, cy: y, r: 5.5, fill: col, stroke: '#fff', 'stroke-width': 1.5}));
-    }
-    const label = v.ship.name + (live?.arrived ? ' · arrived' : ''), w = label.length * 6.6 + 18, lx = x + 13;
-    grp.appendChild(svgEl('rect', {x: lx, y: y - 11, width: w, height: 22, rx: 11, filter: 'url(#cardShadow)'}));
-    grp.appendChild(svgEl('circle', {cx: lx + 10, cy: y, r: 4, fill: col}));
-    const t = svgEl('text', {x: lx + 19, y: y + 4}); t.textContent = label; grp.appendChild(t);
-    const pct = live ? ` · ${(live.frac * 100).toFixed(0)}% of route` : '';
-    addTitle(grp, `${v.ship.name} · ${v.label} · ${v.where}${pct}${v.voyage ? ` · ETA ${fmtEta((v.voyage.last_check || {}).eta || v.voyage.eta)} UTC` : ''}${state.sim.offsetH ? ' · simulated playback position' : ' · position from the approved schedule'}`);
+    if (v.status === 'decision') n.halo = g.appendChild(svgEl('circle', {r: 26, fill: '#ef444433'}));
+    const grp = n.grp = svgEl('g', {class: 'vessel-label', style: 'cursor:pointer'});
+    n.icon = grp.appendChild(v.voyage   // ship icon pointing along the route, or a dot for a ship in port
+      ? svgEl('path', {d: 'M11,0 L-7,-6.5 L-3.5,0 L-7,6.5 Z', fill: col, stroke: '#fff', 'stroke-width': 1.5, filter: 'url(#cardShadow)'})
+      : svgEl('circle', {r: 5.5, fill: col, stroke: '#fff', 'stroke-width': 1.5}));
+    n.pill = grp.appendChild(svgEl('rect', {x: 13, y: -11, width: v.ship.name.length * 6.6 + 18, height: 22, rx: 11, filter: 'url(#cardShadow)'}));
+    grp.appendChild(svgEl('circle', {cx: 23, cy: 0, r: 4, fill: col}));
+    n.text = grp.appendChild(svgEl('text', {x: 32, y: 4})); n.text.textContent = v.ship.name;
+    addTitle(grp, ''); n.title = grp.querySelector('title');
     grp.addEventListener('click', () => { if (v.voyage) { state.ops.sel = v.voyage.id; showPage('operations'); renderOps(); drawOps(); } else { applyRequest({...currentRequest(), ship_id: v.ship.id, fuel_onboard_t: undefined}); schedulePlan(0); showPage('voyages'); } });
     g.appendChild(grp);
+    vesselNodes.push(n); placeVessel(n);
   }
   syncSimUi();
 }
+const setSimSlider = () => { const el = $('simSpeed'); if (el) el.value = Math.round(PB.speedToSlider(state.sim.speed) * 1000); };
 function syncSimUi() {
   const s = state.sim, el = $('simClock'); if (!el) return;
   $('simPlay').textContent = s.playing ? '❚❚ Pause' : '▶ Play';
   $('simPlay').setAttribute('aria-pressed', String(s.playing));
-  const n = (state.ops?.voyages || []).filter(v => ['approved', 'underway'].includes(v.status)).length;
-  el.textContent = !n ? 'No ships at sea · ▶ launches the fleet' : s.offsetH ? `Simulated +${(s.offsetH / 24).toFixed(1)} days` : (s.playing && s.speed === 'real' ? 'Live · real time' : 'Now');
+  const caption = PB.speedCaption(s.speed); $('simSpeedLabel').textContent = caption;
+  const text = !activeVoyages().length ? 'No ships at sea · ▶ launches the fleet'
+    : s.offsetH ? `Simulated +${(s.offsetH / 24).toFixed(1)} days` : (s.playing && caption === 'Real time' ? 'Live · real time' : 'Now');
+  if (el.textContent !== text) el.textContent = text;
   el.classList.toggle('sim-on', !!s.offsetH);
 }
+// Frame loop: runs only while playing. dt is capped in playback.js, so a hidden tab (rAF pauses) never jumps the clock.
+let simLast = 0, simRaf = 0, simUiAt = 0;
+function simFrame(ts) {
+  simRaf = 0;
+  const s = state.sim, dt = simLast ? (ts - simLast) / 1000 : 0; simLast = ts;
+  s.speedNow += (s.speed - s.speedNow) * (1 - Math.exp(-dt / 0.1));   // ease speed changes over ~300 ms
+  const r = PB.advance(s.offsetH, dt, s.speedNow, PB.hoursUntilAllArrive(activeVoyages(), Date.now(), 0));
+  s.offsetH = r.offsetH;
+  if (r.done) s.playing = false;
+  if (['overview', 'operations'].includes(document.body.dataset.page)) moveVessels();
+  if (ts - simUiAt > 250 || !s.playing) { simUiAt = ts; syncSimUi(); }
+  if (s.playing) simRaf = requestAnimationFrame(simFrame); else simLast = 0;
+}
+function ensureSimLoop() { if (!simRaf && state.sim.playing) simRaf = requestAnimationFrame(simFrame); }
 // Play: needs approved voyages to move; with none, launch the demo fleet first.
 function togglePlay(fast) {
-  const active = (state.ops.voyages || []).filter(v => ['approved', 'underway'].includes(v.status));
+  const active = activeVoyages(), s = state.sim;
   if (!active.length) { launchFleet(); return; }
-  if (!state.sim.playing && (fast || state.sim.speed === 'real')) { state.sim.speed = 'day'; $('simSpeed').value = 'day'; }
-  state.sim.playing = !state.sim.playing; syncSimUi();
+  if (!s.playing) {
+    if (fast && s.speed < 1) { s.speed = 24; setSimSlider(); }
+    s.speedNow = s.speed;
+    if (s.offsetH >= PB.hoursUntilAllArrive(active, Date.now(), 0) - 1e-6) s.offsetH = 0;   // all arrived: replay from now
+  }
+  s.playing = !s.playing; syncSimUi(); ensureSimLoop();
 }
 function attachSim() {
+  setSimSlider();
   $('simPlay').addEventListener('click', () => togglePlay());
-  $('simSpeed').addEventListener('change', e => { state.sim.speed = e.target.value; syncSimUi(); });
-  $('simReset').addEventListener('click', () => { state.sim.offsetH = 0; state.sim.playing = false; drawVessels(); });
-  let last = performance.now(), sinceDraw = 0;
-  setInterval(() => {
-    const now = performance.now(), dt = (now - last) / 1000; last = now; sinceDraw += dt;
-    const s = state.sim, page = document.body.dataset.page;
-    if (s.playing && s.speed !== 'real') s.offsetH += dt * SIM_SPEEDS[s.speed];
-    // Redraw often while playing fast; every few seconds in real time (ships move slowly).
-    if ((page === 'overview' || page === 'operations') && (s.playing && s.speed !== 'real' ? true : sinceDraw > 5)) { drawVessels(); sinceDraw = 0; }
-  }, 150);
+  $('simSpeed').addEventListener('input', e => {
+    const s = state.sim; s.speed = PB.sliderToSpeed(Number(e.target.value) / 1000);
+    if (!s.playing) s.speedNow = s.speed;
+    syncSimUi();
+  });
+  $('simReset').addEventListener('click', () => { const s = state.sim; s.offsetH = 0; s.playing = false; s.speedNow = s.speed; drawVessels(); });
+  // Not playing: ships still drift at real time, so refresh their positions every few seconds.
+  setInterval(() => { if (!state.sim.playing && ['overview', 'operations'].includes(document.body.dataset.page)) moveVessels(); }, 5000);
 }
 // Demo: a world event hits the ships at sea (at the positions shown by playback).
 async function fleetEvent() {
@@ -1640,8 +1673,15 @@ async function fleetEvent() {
   await pollOps(); showPage('overview');
 }
 const DEMO_FLEET = [['aurora', 'SIN', 'RTM'], ['borealis', 'SHA', 'HAM'], ['meridian', 'JEA', 'SIN'], ['tern', 'CMB', 'MBA'], ['polaris', 'RTM', 'PIR']];
+let launching = false;
 async function launchFleet() {
+  if (launching) return;   // a second click while the fleet is being planned would approve the same ships twice
+  launching = true;
+  try { await launchFleetNow(); } finally { launching = false; }
+}
+async function launchFleetNow() {
   if (!$('opsName').value.trim()) $('opsName').value = 'Demo operator';
+  await pollOps();   // start from the server's list: clicking before it loaded used to approve ships already at sea
   const name = $('opsName').value.trim(), active = new Set((state.ops.voyages || []).filter(v => ['approved', 'underway'].includes(v.status)).map(v => v.ship_id));
   showPage('overview');
   const btn = document.querySelector('[data-demo=launch]'); if (btn) btn.textContent = '🚢 Launching…';
@@ -1654,7 +1694,7 @@ async function launchFleet() {
     await pollOps();
   }
   if (btn) btn.textContent = '🚢 Launch fleet';
-  state.sim.speed = 'day'; $('simSpeed').value = 'day'; state.sim.playing = true; syncSimUi();
+  state.sim.speed = 24; state.sim.speedNow = 24; setSimSlider(); state.sim.playing = true; syncSimUi(); ensureSimLoop();
 }
 function renderVessels() {
   const vs = vesselStatus(), pol = state.fleet.insurance || {}, cal = state.calibration || {};
