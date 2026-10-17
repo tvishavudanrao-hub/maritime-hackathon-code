@@ -552,6 +552,61 @@ function tradeoffChart(rows, front) {
     + dots + `</svg><div class="to-note">★ and a solid teal dot: Pareto-efficient (no other route beats it on cost, CO₂ and risk together). Dashed grey dot: dominated. Bigger dot: higher risk.</div>`;
 }
 
+// ---- incident search: type to find an incident, ranked by how much it matters to the current route (logic in incidents.js)
+const TI = window.TLIncidents;
+let incCatalog = null, incOptions = [], incActive = -1, incTimer = 0;
+function incidentContext() {
+  const plans = plansOf(state.plan), a = activePlan(), alts = plans.filter(r => r !== a);
+  const zonesOf = r => (r?.legs || []).flatMap(l => l.zones || []), portsOf = r => (r?.checkpoints || []).map(c => c.node), pointsOf = r => r?.path || [];
+  return {routeZones: zonesOf(a), routePorts: portsOf(a), routePoints: pointsOf(a),
+    altZones: alts.flatMap(zonesOf), altPorts: alts.flatMap(portsOf), altPoints: alts.flatMap(pointsOf)};
+}
+function renderIncidentList() {
+  const input = $('incInput'), list = $('incList'), q = input.value.trim();
+  if (!state.network) return;
+  incCatalog = incCatalog || TI.buildCatalog(state.network);
+  const taken = new Set(state.extraEvents.map(e => e.id));
+  const rows = TI.rank(incCatalog, q, incidentContext()).filter(r => !taken.has('inc-' + r.item.id)).slice(0, q ? 12 : 8);
+  incOptions = rows.map(r => ({item: r.item, group: r.group}));
+  if (q) incOptions.push({ask: q});
+  let html = '', last = '';
+  incOptions.forEach((o, i) => {
+    if (o.ask) { html += `<li role="option" id="inc-opt-${i}" data-i="${i}" aria-selected="false" class="inc-opt inc-ask"><span class="inc-ic" aria-hidden="true">💬</span><span>Ask Tideline: “${esc(o.ask)}” <small>(the assistant proposes a scenario)</small></span></li>`; return; }
+    if (o.group !== last) { html += `<li role="presentation" class="inc-group">${esc(o.group)}</li>`; last = o.group; }
+    html += `<li role="option" id="inc-opt-${i}" data-i="${i}" aria-selected="false" class="inc-opt sev-${o.item.severity}"><span class="inc-ic" aria-hidden="true">${TI.severityIcon(o.item.severity)}</span><span>${esc(o.item.label)}</span></li>`;
+  });
+  list.innerHTML = html || '<li role="presentation" class="inc-group">No incidents left to add</li>';
+  incActive = -1; input.removeAttribute('aria-activedescendant');
+  list.hidden = false; input.setAttribute('aria-expanded', 'true');
+}
+function closeIncidentList() { $('incList').hidden = true; $('incInput').setAttribute('aria-expanded', 'false'); $('incInput').removeAttribute('aria-activedescendant'); incActive = -1; }
+function setIncidentActive(i) {
+  const opts = [...$('incList').querySelectorAll('[role=option]')]; if (!opts.length) return;
+  incActive = (i + opts.length) % opts.length;
+  opts.forEach((el, k) => el.setAttribute('aria-selected', String(k === incActive)));
+  $('incInput').setAttribute('aria-activedescendant', opts[incActive].id); opts[incActive].scrollIntoView({block: 'nearest'});
+}
+function chooseIncident(i) {
+  const o = incOptions[i]; if (!o) return;
+  if (o.ask) { const q = o.ask; $('incInput').value = ''; closeIncidentList(); setSideTab('chat'); sendChat(q); return; }
+  const ev = TI.eventFor(o.item, new Date().toISOString());
+  if (!state.extraEvents.some(e => e.id === ev.id)) state.extraEvents.push(ev);
+  $('incInput').value = ''; closeIncidentList(); renderExtraEvents(); schedulePlan();
+}
+function attachIncidents() {
+  const input = $('incInput'), list = $('incList');
+  input.addEventListener('input', () => { clearTimeout(incTimer); incTimer = setTimeout(renderIncidentList, 120); });   // debounced
+  input.addEventListener('focus', renderIncidentList);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (list.hidden) renderIncidentList(); setIncidentActive(incActive + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setIncidentActive(incActive - 1); }
+    else if (e.key === 'Enter') { if (!list.hidden && incActive >= 0) { e.preventDefault(); chooseIncident(incActive); } else if (input.value.trim()) { e.preventDefault(); renderIncidentList(); chooseIncident(incOptions.length - 1); } }
+    else if (e.key === 'Escape') { if (!list.hidden) { e.preventDefault(); closeIncidentList(); } else input.value = ''; }
+  });
+  list.addEventListener('mousedown', e => { const li = e.target.closest('[role=option]'); if (li) { e.preventDefault(); chooseIncident(Number(li.dataset.i)); } });
+  input.addEventListener('blur', () => setTimeout(closeIncidentList, 120));
+}
+
 // Hazard overlay. Every marker pairs colour with a shape and a symbol, and the legend explains each one.
 const PORT_KIND = {
   closed:      {label: 'Port closed or avoided', glyph: '✕', fill: '#dc2626', shape: (x, y) => `M${x - 6},${y - 6}h12v12h-12z`, dy: 3.2},
@@ -854,7 +909,7 @@ const TOGGLE_FOR = e => {
 };
 function renderExtraEvents() {
   const box = $('extraEvents'); if (!box) return;
-  box.innerHTML = state.extraEvents.map((e, i) => `<span class="extra-event" title="${esc('Source: ' + (e.source || 'chat'))}">${esc(e.description || e.type)}<button type="button" data-i="${i}" aria-label="Remove event">✕</button></span>`).join('');
+  box.innerHTML = state.extraEvents.map((e, i) => `<span class="extra-event" title="${esc('Source: ' + (e.source || 'chat'))}"><span aria-hidden="true">${TI.severityIcon(['zone_closure', 'port_closure'].includes(e.type) ? 'critical' : 'warning')}</span> ${esc(e.description || e.type)}<button type="button" data-i="${i}" aria-label="Remove event">✕</button></span>`).join('');
   box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { state.extraEvents.splice(Number(b.dataset.i), 1); renderExtraEvents(); schedulePlan(); }));
 }
 function applyRequest(req) {
@@ -2053,7 +2108,7 @@ async function init() {
     attachOps();
     attachCalibration();
     attachShell();
-    attachSim(); attachWarnings();
+    attachSim(); attachWarnings(); attachIncidents();
     syncProgress();
     schedulePlan(0);
     pullNews();

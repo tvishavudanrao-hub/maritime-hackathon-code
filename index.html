@@ -107,6 +107,13 @@
     .to-legend{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px;font-size:12px}.to-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
     .to-note{font-size:12px;color:var(--muted);line-height:1.45;margin:4px 0 8px}.to-chart{width:100%;max-width:420px;height:auto;display:block;margin-top:6px;background:#fafcfe;border:1px solid var(--line);border-radius:10px}
     .to-pt{font:600 10.5px 'Inter';fill:#0f1f33;paint-order:stroke;stroke:#fff;stroke-width:3}.to-ax{font:600 10px 'Inter';fill:#64748b}
+    .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    .inc-search{position:relative;margin:4px 0 10px}.inc-search input{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff}
+    .inc-search input:focus{outline:2px solid #2563eb55;border-color:#2563eb}
+    #incList{position:absolute;left:0;right:0;top:100%;z-index:6;margin:4px 0 0;padding:4px;list-style:none;max-height:300px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0f1f3322}
+    .inc-group{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 8px 2px}
+    .inc-opt{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px}.inc-opt[aria-selected=true],.inc-opt:hover{background:#eff6ff}
+    .inc-ic{width:18px;text-align:center;flex:none}.inc-opt.sev-critical .inc-ic{color:#dc2626}.inc-opt.sev-warning .inc-ic{color:#d97706}.inc-ask small{color:var(--muted)}
     .cond-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:10px 14px;border-radius:11px;border:1px solid var(--line);border-left:6px solid #2563eb;background:#eff6ff;color:#1e3a8a;font-size:13.5px;cursor:pointer}
     .cond-banner[hidden]{display:none}.cond-banner.sev-warning{border-left-color:#d97706;background:#fffbeb;color:#78350f}.cond-banner.sev-critical{border-left-color:#dc2626;background:#fef2f2;color:#7f1d1d}
     .cb-sev{font-weight:800;white-space:nowrap}.cb-text{flex:1 1 260px;font-weight:600}.cb-more,.cb-src{font-size:12px;opacity:.8}.cb-x{border:0;background:none;font-size:16px;line-height:1;cursor:pointer;color:inherit;padding:4px 6px;border-radius:6px}.cb-x:hover{background:#0000001a}
@@ -343,6 +350,7 @@
       <details class="ctl" open><summary>World &amp; scenarios</summary>
         <div class="field-block"><div class="field-label">World conditions</div><div class="seg" id="condMode"><button type="button" data-cond="today" class="active">◉ Today</button><button type="button" data-cond="normal">○ Normal times</button></div><div class="hint" id="condHint">Sourced snapshot of real conditions: fuel prices, war-risk premiums, security, live chokepoint traffic.</div></div>
         <div class="field-label" style="margin-top:4px">What if…</div>
+        <div class="inc-search"><label class="sr-only" for="incInput">Search incidents to add to the plan</label><input id="incInput" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="incList" aria-haspopup="listbox" autocomplete="off" placeholder="Search incidents: Red Sea, Suez closed, storm, Hamburg…"><ul id="incList" role="listbox" aria-label="Matching incidents, most relevant to your route first" hidden></ul></div>
         <label class="toggle-row"><span><strong>Red Sea passage closed</strong><span class="description">Bab el-Mandeb closure → hard rule</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="blockBab"><span class="track"></span></span></label>
         <label class="toggle-row"><span><strong>Red Sea threat raised</strong><span class="description">Higher risk + war-risk premium</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="threatBab"><span class="track"></span></span></label>
         <label class="toggle-row"><span><strong>Insurers cancel Red Sea war cover</strong><span class="description">Not insured there → re-route (or buy cover)</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="coverBab"><span class="track"></span></span></label>
@@ -456,6 +464,7 @@
 <script src="/mapview.js?v=tideline-5" defer></script>
 <script src="/warnings.js?v=tideline-9" defer></script>
 <script src="/compare.js?v=tideline-13" defer></script>
-<script src="/app.js?v=tideline-13" defer></script>
+<script src="/incidents.js?v=tideline-14" defer></script>
+<script src="/app.js?v=tideline-14" defer></script>
 </body>
 </html>
