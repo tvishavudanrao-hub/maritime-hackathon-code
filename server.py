@@ -46,6 +46,7 @@ from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 from optimizer import CARGO_SEGMENTS, FLEET_LIST, conditions_payload, fleet_payload, network_payload, plan_voyage
+import news_rank
 import portwatch
 from fuel_model import get_fuel_model
 from ai_layer import ai_status, chat
@@ -207,11 +208,7 @@ def get_path_weather(samples):
                     horizonDays=7,samples=[],note='Live marine forecasts are unavailable.',detail=f'{type(exc).__name__}: {str(exc)[:150]}')
 
 
-CHOKEPOINT_TERMS = '("Strait of Hormuz" OR "Bab el Mandeb" OR "Red Sea" OR "Suez Canal")'
-
-
-def news_gdelt(extra='shipping'):
-    query = CHOKEPOINT_TERMS + ' ' + extra
+def news_gdelt(query):
     url = 'https://api.gdeltproject.org/api/v2/doc/doc?' + urlencode({
         'query':query,'mode':'ArtList','format':'json','maxrecords':15,'timespan':'3d','sort':'DateDesc'})
     data=fetch_json(url, timeout=8)
@@ -224,8 +221,8 @@ def news_gdelt(extra='shipping'):
     return articles
 
 
-def news_google(extra='shipping'):
-    query=CHOKEPOINT_TERMS + ' ' + extra + ' when:3d'
+def news_google(query):
+    query=query + ' when:3d'
     url = 'https://news.google.com/rss/search?' + urlencode({'q':query,'hl':'en-US','gl':'US','ceid':'US:en'})
     feed = fetch_xml(url,timeout=8)
     articles=[]
@@ -240,40 +237,28 @@ def news_google(extra='shipping'):
     return articles
 
 
-def topic_for(title):
-    title=title.lower()
-    if any(w in title for w in ('hormuz','persian gulf')):return 'hormuz'
-    if any(w in title for w in ('bab el','red sea','houthi','yemen')):return 'bab'
-    if any(w in title for w in ('suez','canal')):return 'suez'
-    return 'general'
+def _fetch_articles(query):
+    try: return news_gdelt(query),'GDELT DOC 2.0'
+    except Exception: return news_google(query),'Google News RSS'
 
 
-def _fetch_articles(extra):
-    try: return news_gdelt(extra),'GDELT DOC 2.0'
-    except Exception: return news_google(extra),'Google News RSS'
-
-
-def get_news(cargo=None):
-    """Chokepoint shipping headlines, plus headlines specific to the operator's cargo segment."""
+def get_news(cargo=None,regions=None):
+    """Headlines for the regions the route passes: general shipping news plus the operator's fleet terms,
+    tagged (Your fleet / On your route / General) and ranked by relevance."""
     seg=CARGO_SEGMENTS.get(cargo)
+    regions=news_rank.normalise_regions(regions)
     try:
-        articles,source=_fetch_articles('shipping')
+        articles,source=_fetch_articles(news_rank.build_query(regions,'shipping'))
         if seg:
             try:
-                extra,_=_fetch_articles(seg['news_terms'])
+                extra,_=_fetch_articles(news_rank.build_query(regions,seg['news_terms']))
                 seen={a['url'] for a in articles}
                 articles=[a for a in extra if a['url'] not in seen]+articles
             except Exception:
                 pass  # general headlines still work
-        for article in articles:
-            title=article['title'].lower()
-            article['topic']=topic_for(article['title'])
-            article['potentialDisruption']=any(w in title for w in
-                ('closed','closure','attack','attacked','missile','blockade','disrupt','strike','seized','threat'))
-            article['relevant']=bool(seg) and any(k in title for k in seg['keywords'])
-        articles.sort(key=lambda a:(not a['relevant'],))
+        articles=news_rank.tag_and_rank(articles,seg,regions)
         return dict(status='live',source=source,retrievedAt=datetime.now(timezone.utc).isoformat(),articles=articles[:25],
-                    cargo=cargo,cargoLabel=seg['label'] if seg else None,
+                    cargo=cargo,cargoLabel=seg['label'] if seg else None,regions=list(regions),
                     note='Unverified press signals only. Never treat news keywords as official closure alerts.')
     except Exception as exc:
         return dict(status='unavailable',source='GDELT / Google News RSS',retrievedAt=datetime.now(timezone.utc).isoformat(),
@@ -320,7 +305,8 @@ class Handler(SimpleHTTPRequestHandler):
             q=parse_qs(parsed.query)
             cargo=q.get('cargo',[''])[0]
             if cargo and cargo not in CARGO_SEGMENTS:return self.json_response({'error':'Unknown cargo'},400)
-            return self.json_response(get_cached('news/'+cargo,900,lambda:get_news(cargo or None),force=q.get('refresh',['0'])[0]=='1'))
+            regions=news_rank.normalise_regions([r for r in q.get('regions',[''])[0].split(',') if r])
+            return self.json_response(get_cached(news_rank.cache_key(cargo,regions),900,lambda:get_news(cargo or None,regions),force=q.get('refresh',['0'])[0]=='1'))
         if parsed.path=='/api/path-weather':
             q=parse_qs(parsed.query)
             try: samples=parse_path_points(q.get('pts',[''])[0])

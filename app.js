@@ -129,6 +129,7 @@ async function requestPlan() {
   }
   render();
   pullWeather();
+  refreshNewsForRoute();
 }
 
 // ------------------------------------------------------------------ rendering
@@ -589,10 +590,20 @@ async function pullWeather(force = false) {
   drawWeatherPoints(); renderWeatherSummary();
 }
 
+// News follows the route: search the regions the plan passes through (zone ids), not a fixed list.
+const routeRegions = () => [...new Set((activePlan()?.legs || []).flatMap(l => l.zones || []))].sort();
+let newsRegionsKey = null, newsRegionsAt = 0;
+function refreshNewsForRoute() {   // re-fetch when the route's regions change; later changes at most once a minute (a reroute can flip them)
+  const key = routeRegions().join(',');
+  if (!key || key === newsRegionsKey) return;
+  if (newsRegionsKey && Date.now() - newsRegionsAt < 60000) return;   // '' = fetched before any route existed: correct it at once
+  pullNews();
+}
 async function pullNews(force = false) {
   state.news = {status: 'loading', articles: []}; renderNews();
+  const regions = routeRegions(); newsRegionsKey = regions.join(','); newsRegionsAt = Date.now();
   try {
-    const res = await fetch(`/api/news?cargo=${encodeURIComponent(state.cargo)}${force ? '&refresh=1' : ''}`, {cache: 'no-store'});
+    const res = await fetch(`/api/news?cargo=${encodeURIComponent(state.cargo)}${regions.length ? '&regions=' + regions.join(',') : ''}${force ? '&refresh=1' : ''}`, {cache: 'no-store'});
     if (!res.ok) throw Error(`HTTP ${res.status}`);
     state.news = await res.json();
   } catch (e) { state.news = {status: 'unavailable', articles: [], detail: e.message}; }
@@ -621,6 +632,13 @@ function renderWeatherSummary() {
   $('geoCount').textContent = n.status === 'live' ? (n.articles || []).filter(a => a.potentialDisruption).length : '—';
 }
 
+// Tag each headline: icon + text (never colour alone). A fleet match that is also on the route shows both.
+function newsTagHtml(a) {
+  const fleet = `<span class="news-tag tag-fleet" title="Matches ${esc(state.news.cargoLabel || 'your fleet')}">🚢 Your fleet</span>`;
+  const route = '<span class="news-tag tag-route" title="About a region your route passes through">📍 On your route</span>';
+  const general = '<span class="news-tag tag-general" title="General shipping news">General</span>';
+  return ' ' + (a.relevant && a.onRoute ? fleet + ' ' + route : a.relevant ? fleet : a.onRoute ? route : general);
+}
 function renderNews() {
   const items = $('newsItems');
   if (state.news.status !== 'live') {
@@ -628,7 +646,7 @@ function renderNews() {
     renderWeatherSummary(); return;
   }
   const articles = state.news.articles.slice(0, 10);
-  items.innerHTML = articles.length ? articles.map(a => `<a class="news-item" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer"><strong>${esc(a.title)}</strong><div class="news-meta"><i class="news-bullet ${a.potentialDisruption ? 'warn' : ''}"></i>${esc(a.source || 'Press feed')} · ${esc(formatDate(a.published))}${a.potentialDisruption ? ' · Keyword signal' : ''}${a.relevant ? ` <span class="news-tag">${esc(state.news.cargoLabel || 'your cargo')}</span>` : ''}</div></a>`).join('') : '<div class="empty-feed">No matching articles in the latest search window.</div>';
+  items.innerHTML = articles.length ? articles.map(a => `<a class="news-item" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer"><strong>${esc(a.title)}</strong><div class="news-meta"><i class="news-bullet ${a.potentialDisruption ? 'warn' : ''}"></i>${esc(a.source || 'Press feed')} · ${esc(formatDate(a.published))}${a.potentialDisruption ? ' · Keyword signal' : ''}${newsTagHtml(a)}</div></a>`).join('') : '<div class="empty-feed">No matching articles in the latest search window.</div>';
   renderWeatherSummary();
 }
 
