@@ -438,22 +438,50 @@ function drawNetwork() {
   }
 }
 
+// Hazard overlay. Every marker pairs colour with a shape and a symbol, and the legend explains each one.
+const PORT_KIND = {
+  closed:      {label: 'Port closed or avoided', glyph: '✕', fill: '#dc2626', shape: (x, y) => `M${x - 6},${y - 6}h12v12h-12z`, dy: 3.2},
+  shallow:     {label: 'Too shallow for this ship', glyph: '↓', fill: '#7c3aed', shape: (x, y) => `M${x},${y - 8}l7,8l-7,8l-7,-8z`, dy: 3.2},
+  unreachable: {label: 'Unreachable: every sea route passes a risk zone', glyph: '⊘', fill: '#7f1d1d', shape: (x, y) => `M${x - 7},${y}a7,7 0 1,0 14,0a7,7 0 1,0 -14,0`, dy: 3.2},
+  in_zone:     {label: 'Inside a high-risk zone', glyph: '!', fill: '#ea580c', shape: (x, y) => `M${x},${y - 9}l8,15h-16z`, dy: 4},
+  congested:   {label: 'Congested: long expected wait', glyph: '⏱', fill: '#d97706', shape: (x, y) => `M${x - 4},${y - 7}h8l4,7l-4,7h-8l-4,-7z`, dy: 3.2},
+};
+function zoneTitle(z) {
+  const head = `${z.label} · ${z.level.toUpperCase()}${Number.isFinite(z.score) ? ` · security risk score ${z.score}/100` : ''}`;
+  const parts = z.parts?.length ? z.parts.map(p => `• ${p.text} — ${p.source}`) : (z.reasons || []).map(r => `• ${r}`);
+  return [head, ...(parts.length ? parts : ['• no active risk signals'])].join('\n');
+}
+function ensureMapDefs() {   // diagonal hatch for closed zones, so "closed" does not depend on colour alone
+  const svg = $('worldMap'); if (svg.querySelector('#hazHatch')) return;
+  const defs = svg.querySelector('defs') || svg.insertBefore(svgEl('defs'), svg.firstChild);
+  const pat = svgEl('pattern', {id: 'hazHatch', width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)'});
+  pat.appendChild(svgEl('rect', {width: 6, height: 6, fill: '#ef444422'}));
+  pat.appendChild(svgEl('line', {x1: 0, y1: 0, x2: 0, y2: 6, stroke: '#dc2626', 'stroke-width': 2}));
+  defs.appendChild(pat);
+}
+
 function drawMap() {
   if (!state.network) return;
   const t = state.toggles, a = activePlan(), p = state.plan;
   // risk zones, colored by the level the planner computed (closed / high / elevated / normal)
   const zones = $('zonesSvg'); zones.innerHTML = '';
   const hz = p?.hazards?.zones || Object.entries(state.network.zones).map(([id, z]) => ({id, ...z, level: 'normal', reasons: []}));
+  ensureMapDefs();
   for (const z of hz) {
     const [x, y] = project(z.location), r = z.id === 'gulf_guinea' ? 20 : z.level === 'normal' ? 10 : 14;
     const g = svgEl('g');
     g.appendChild(svgEl('circle', {cx: x, cy: y, r, class: 'haz-zone ' + z.level}));
+    if (z.level !== 'normal') {   // symbol at the centre: ⚠ elevated / high, ✕ closed
+      const mark = svgEl('text', {x, y: y + 4.5, 'text-anchor': 'middle', class: 'haz-mark ' + z.level});
+      mark.textContent = z.level === 'closed' ? '✕' : '⚠';
+      g.appendChild(mark);
+    }
     if (z.level === 'high' || z.level === 'closed') {
       const lbl = svgEl('text', {x: x + r + 4, y: y - r + 2, class: 'haz-label ' + z.level});
       lbl.textContent = `▲ ${z.label.split(' / ')[0]} · ${z.level.toUpperCase()}`;
       g.appendChild(lbl);
     }
-    zones.appendChild(addTitle(g, `${z.label} · ${z.level.toUpperCase()}${z.reasons.length ? ' · ' + z.reasons.join('; ') : ''}`));
+    zones.appendChild(addTitle(g, zoneTitle(z)));
   }
   // storm
   const storm = $('stormSvg'); storm.innerHTML = '';
@@ -516,14 +544,12 @@ function drawMap() {
     ports.appendChild(addTitle(g, `${port.name} · fuel $${fp ? Math.round(fp.price) + ' (' + fp.basis + ', ' + fp.date + ')' : port.fuel_price + ' (sample)'}/t · max draft ${port.max_draft_m} m${closedPorts.has(code) ? ' · CLOSED (simulated)' : ''}`));
   }
   for (const hp of p?.hazards?.ports || []) {
-    if (hp.port === state.origin || hp.port === state.destination) {
-      if (!hp.reasons.length) continue;
-    }
-    const [x, y] = project(hp.loc), g = svgEl('g', {class: 'haz-port'});
-    const severe = hp.level === 'severe', col = severe ? '#ff6b6b' : '#ffb07a', k = severe ? 1 : 0.7;
-    g.appendChild(svgEl('path', {d: `M${x},${y - 13 * k} l${6 * k},${10 * k} h${-12 * k} z`, fill: col, stroke: '#ffffff', 'stroke-width': 1.2, opacity: severe ? 1 : .8}));
-    if (severe) { const ex = svgEl('text', {x, y: y - 4.5, 'text-anchor': 'middle', 'font-size': 8, 'font-weight': 800, fill: '#ffffff'}); ex.textContent = '!'; g.appendChild(ex); }
-    ports.appendChild(addTitle(g, `${hp.name} · ${hp.level === 'severe' ? 'HAZARD' : 'CAUTION'} · ${hp.reasons.join('; ')}`));
+    if ((hp.port === state.origin || hp.port === state.destination) && !hp.reasons.length) continue;
+    const [x, y] = project(hp.loc), g = svgEl('g', {class: 'haz-port'}), k = PORT_KIND[hp.kind] || PORT_KIND.in_zone;
+    g.appendChild(svgEl('path', {d: k.shape(x, y), fill: k.fill, stroke: '#ffffff', 'stroke-width': 1.2, opacity: hp.level === 'severe' ? 1 : .85}));
+    const t = svgEl('text', {x, y: y + k.dy, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 800, fill: '#ffffff'}); t.textContent = k.glyph; g.appendChild(t);
+    const also = (hp.kinds || []).filter(x => x !== hp.kind).map(x => PORT_KIND[x]?.label).filter(Boolean);
+    ports.appendChild(addTitle(g, [`${hp.name} · ${k.label} (${hp.level === 'severe' ? 'HAZARD' : 'CAUTION'})`, ...hp.reasons.map(r => '• ' + r), ...(also.length ? ['Also: ' + also.join('; ')] : [])].join('\n')));
   }
   for (const b of a?.bunkering || []) {
     const [x, y] = project(state.network.ports[b.port].loc), g = svgEl('g');
@@ -982,6 +1008,7 @@ function attachControls() {
   for (const id of TOGGLES) $(id).addEventListener('change', e => { state.toggles[id] = e.target.checked; schedulePlan(); });
   $('refreshFeeds').addEventListener('click', () => { pullNews(true); pullWeather(true); });
 
+  if (innerWidth >= 900 && $('mapLegend')) $('mapLegend').open = true;   // collapsible; open on wide screens
   $('zoomIn').addEventListener('click', () => zoom(.7)); $('zoomOut').addEventListener('click', () => zoom(1 / .7));
   $('zoomReset').addEventListener('click', () => { state.mapView = {x: 0, y: 0, w: W, h: H}; updateView(); });
   const svg = $('worldMap'), ptrs = new Map(); let pan = null, pinch = null;

@@ -1002,6 +1002,13 @@ def _event_impacts(records, main_plans, alt_plans, storms, blocking_storms):
     return out
 
 
+def _port_kinds(reasons):
+    """What is wrong with a port, most serious first: closed, shallow, unreachable, in_zone (inside a risk zone), congested."""
+    prefixes = (('closed', ('closed', 'avoided')), ('shallow', ('too shallow',)), ('unreachable', ('every sea route',)),
+                ('in_zone', ('inside ',)), ('congested', ('congested',)))
+    return [kind for kind, starts in prefixes if any(x.startswith(starts) for x in reasons)]
+
+
 def _hazards(r, ev):
     """Zones and ports to highlight on the map, from the same inputs the optimizer used."""
     ship = r['ship']
@@ -1014,27 +1021,36 @@ def _hazards(r, ev):
     zones = []
     for z, info in GRAPH.zones.items():
         sec, tr, wr = risk.security([z]), ev['traffic'].get(z), ev['war_risk'].get(z, 0.0)
-        reasons = []
+        reasons, parts = [], []   # parts = the same reasons, each with its kind and where the figure comes from
+
+        def add(kind, text, source):
+            reasons.append(text)
+            parts.append({'kind': kind, 'text': text, 'source': source})
         if z in closed_z:
             level = 'closed'
-            reasons.append('closed' if z in ev['closed_zones'] else "not covered by the ship's insurance" if z in uninsured and z not in r['avoid_zones'] else 'avoided by operator')
+            if z in ev['closed_zones']:
+                add('closure', 'closed', 'SIMULATED scenario: closure set by the operator, not a real closure')
+            elif z in uninsured and z not in r['avoid_zones']:
+                add('closure', "not covered by the ship's insurance", 'Insurance policy (SAMPLE terms)')
+            else:
+                add('closure', 'avoided by operator', 'Operator setting (avoid list)')
         else:
             high = sec >= 0.25 or wr >= 0.005 or (tr is not None and tr < 0.5)
             elevated = sec >= 0.1 or wr > 0 or (tr is not None and tr < 0.8)
             level = 'high' if high else 'elevated' if elevated else 'normal'
         if sec >= 0.1:
-            reasons.append(f'security risk {sec:.2f}')
+            add('security', f'security risk {sec:.2f}', 'SAMPLE zone baseline plus scenario, headline and advisory bumps')
         if wr > 0:
-            reasons.append(f'war-risk premium {wr:.2%} of hull')
+            add('war_risk', f'war-risk premium {wr:.2%} of hull', 'SAMPLE war-risk rate (insurance data)')
         if tr is not None and tr < 0.8:
-            reasons.append(f'traffic {tr:.0%} of normal')
+            add('traffic', f'traffic {tr:.0%} of normal', 'IMF PortWatch transits vs 2023 baseline, or a scenario event')
         adv = len((ev.get('advisories') or {}).get(z, []))
         if adv:
-            reasons.append(f"{adv} official NGA security warning(s)")
+            add('advisory', f"{adv} official NGA security warning(s)", 'NGA navigational warnings (official)')
         if ev['news'].get(z, 0) - adv > 0:
-            reasons.append(f"{ev['news'][z] - adv} disruption headline(s)")
+            add('news', f"{ev['news'][z] - adv} disruption headline(s)", 'GDELT / Google News headlines (unverified press signal)')
         zones.append({'id': z, 'label': info['label'], 'location': info['location'], 'radiusKm': info['radiusKm'],
-                      'level': level, 'reasons': reasons})
+                      'level': level, 'reasons': reasons, 'score': max(0, min(100, round(100 * sec))), 'parts': parts})
     zlevel = {z['id']: z['level'] for z in zones}
     ports = []
     for code, p in GRAPH.ports.items():
@@ -1057,7 +1073,9 @@ def _hazards(r, ev):
             reasons.append(f'congested: {wait:g} h expected wait')
         if reasons:
             severe = any(x.startswith(('closed', 'too shallow', 'avoided')) or 'closed)' in x or 'high)' in x or '(high risk)' in x for x in reasons)
-            ports.append({'port': code, 'name': p['name'], 'loc': p['loc'], 'level': 'severe' if severe else 'caution', 'reasons': reasons})
+            kinds = _port_kinds(reasons)
+            ports.append({'port': code, 'name': p['name'], 'loc': p['loc'], 'level': 'severe' if severe else 'caution', 'reasons': reasons,
+                          'kind': kinds[0], 'kinds': kinds})
     return {'zones': zones, 'ports': ports}
 
 
