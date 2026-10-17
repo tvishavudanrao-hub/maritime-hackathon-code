@@ -14,7 +14,7 @@ const LANES = [
 const TOGGLES = ['blockBab', 'threatBab', 'coverBab', 'blockSuez', 'blockHormuz', 'closeWestAfrica', 'stormCape', 'liveWeather', 'autoNews', 'allowUninsured'];
 const state = {
   fleet: null, network: null, ops: {voyages: [], sel: null, meta: null, busy: null, error: null},
-  sim: {playing: false, speed: 24, speedNow: 24, offsetH: 0},   // speeds are simulated hours per real second
+  sim: {playing: false, speed: 24, speedNow: 24, offsetH: 0, auto: true},   // speeds are simulated hours per real second
   ship: 'aurora', origin: 'SIN', destination: 'RTM', priority: 'balanced', conditions: 'today', today: null,
   cargo: 'retail', weights: null,   // weights = null → use the preset's weights
   fuel: 2500, deadline: '', deadlineType: 'hard', berth: '',
@@ -1117,7 +1117,7 @@ function zoomTo(w, ax, ay) { state.mapView = TLMapView.zoomView(state.mapView, w
 function zoom(factor) { zoomTo(state.mapView.w * factor); }
 function updateView() {
   const v = state.mapView; $('worldMap').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
-  moveVessels(); if (state.ais.on) drawAis(); drawWarnMarkers();   // ship icons keep their on-screen size at every zoom
+  moveVessels(); if (state.ais.on) drawAis(); drawWarnMarkers(); syncSimUi();   // the speed label shows the zoom multiplier   // ship icons keep their on-screen size at every zoom
 }
 function timeTick() {
   const d = new Date();
@@ -1769,18 +1769,23 @@ function syncSimUi() {
   const s = state.sim, el = $('simClock'); if (!el) return;
   $('simPlay').textContent = s.playing ? '❚❚ Pause' : '▶ Play';
   $('simPlay').setAttribute('aria-pressed', String(s.playing));
-  const caption = PB.speedCaption(s.speed); $('simSpeedLabel').textContent = caption;
+  const caption = PB.speedCaption(s.speed), mult = PB.zoomMultiplier(PB.zoomLevel(state.mapView.w, W));
+  const rate = PB.rateCaption(s.speed, mult, s.auto);   // e.g. '10 h/s × 2.3 (zoomed out) = 23 h/s'
+  if ($('simSpeedLabel').textContent !== rate) $('simSpeedLabel').textContent = rate;
+  $('simSpeedLabel').title = caption;
   const text = !activeVoyages().length ? 'No ships at sea · ▶ launches the fleet'
     : s.offsetH ? `Simulated +${(s.offsetH / 24).toFixed(1)} days` : (s.playing && caption === 'Real time' ? 'Live · real time' : 'Now');
   if (el.textContent !== text) el.textContent = text;
   el.classList.toggle('sim-on', !!s.offsetH);
 }
 // Frame loop: runs only while playing. dt is capped in playback.js, so a hidden tab (rAF pauses) never jumps the clock.
+// Speed the ship should run at now: the slider speed, scaled by the map zoom when auto-scale is on (read here, in the frame loop).
+const simTarget = () => PB.effectiveSpeed(state.sim.speed, PB.zoomLevel(state.mapView.w, W), state.sim.auto);
 let simLast = 0, simRaf = 0, simUiAt = 0;
 function simFrame(ts) {
   simRaf = 0;
   const s = state.sim, dt = simLast ? (ts - simLast) / 1000 : 0; simLast = ts;
-  s.speedNow += (s.speed - s.speedNow) * (1 - Math.exp(-dt / 0.1));   // ease speed changes over ~300 ms
+  s.speedNow += (simTarget() - s.speedNow) * (1 - Math.exp(-dt / 0.1));   // ease speed and zoom changes over ~300 ms; the clock integrates this, so it never jumps
   const r = PB.advance(s.offsetH, dt, s.speedNow, PB.hoursUntilAllArrive(activeVoyages(), Date.now(), 0));
   s.offsetH = r.offsetH;
   if (r.done) s.playing = false;
@@ -1795,7 +1800,7 @@ function togglePlay(fast) {
   if (!active.length) { launchFleet(); return; }
   if (!s.playing) {
     if (fast && s.speed < 1) { s.speed = 24; setSimSlider(); }
-    s.speedNow = s.speed;
+    s.speedNow = simTarget();
     if (s.offsetH >= PB.hoursUntilAllArrive(active, Date.now(), 0) - 1e-6) s.offsetH = 0;   // all arrived: replay from now
   }
   s.playing = !s.playing; syncSimUi(); ensureSimLoop();
@@ -1805,10 +1810,11 @@ function attachSim() {
   $('simPlay').addEventListener('click', () => togglePlay());
   $('simSpeed').addEventListener('input', e => {
     const s = state.sim; s.speed = PB.sliderToSpeed(Number(e.target.value) / 1000);
-    if (!s.playing) s.speedNow = s.speed;
+    if (!s.playing) s.speedNow = simTarget();
     syncSimUi();
   });
-  $('simReset').addEventListener('click', () => { const s = state.sim; s.offsetH = 0; s.playing = false; s.speedNow = s.speed; drawVessels(); });
+  $('simAuto').addEventListener('change', e => { const s = state.sim; s.auto = e.target.checked; if (!s.playing) s.speedNow = simTarget(); syncSimUi(); });
+  $('simReset').addEventListener('click', () => { const s = state.sim; s.offsetH = 0; s.playing = false; s.speedNow = simTarget(); drawVessels(); });
   // Not playing: ships still drift at real time, so refresh their positions every few seconds.
   setInterval(() => { if (!state.sim.playing && ['overview', 'operations'].includes(document.body.dataset.page)) moveVessels(); }, 5000);
 }
@@ -1849,7 +1855,7 @@ async function launchFleetNow() {
     await pollOps();
   }
   if (btn) btn.textContent = '🚢 Launch fleet';
-  state.sim.speed = 24; state.sim.speedNow = 24; setSimSlider(); state.sim.playing = true; syncSimUi(); ensureSimLoop();
+  state.sim.speed = 24; state.sim.speedNow = simTarget(); setSimSlider(); state.sim.playing = true; syncSimUi(); ensureSimLoop();
 }
 function renderVessels() {
   const vs = vesselStatus(), pol = state.fleet.insurance || {}, cal = state.calibration || {};

@@ -15,10 +15,23 @@
     if (s <= MIN_SPEED * 1.05) return 'Real time';
     return `${sig(s)} h/s · 1 day ≈ ${sig(24 / s)} s`;
   }
+  // Zoom-aware speed: the ship's on-screen pace stays roughly constant, so zoomed out it runs faster and zoomed in slower.
+  // effective = base x 2^(ZOOM_K x (ZOOM_REF - zoom)), clamped to 0.25x..8x. zoom = log2(world width / view width): 0 at the world view.
+  const ZOOM_K = 0.8, ZOOM_REF = 1.5, MULT_MIN = 0.25, MULT_MAX = 8, ABS_MAX = MAX_SPEED * MULT_MAX;
+  const zoomLevel = (viewW, worldW) => Math.log2(worldW / viewW);
+  const zoomMultiplier = zoom => clamp(2 ** (ZOOM_K * (ZOOM_REF - zoom)), MULT_MIN, MULT_MAX);
+  const effectiveSpeed = (base, zoom, auto) => auto ? base * zoomMultiplier(zoom) : base;
+  function rateCaption(base, mult, auto) {
+    const b = clampSpeed(base);
+    if (b <= MIN_SPEED * 1.05 && (!auto || Math.abs(mult - 1) < 0.05)) return 'Real time';
+    if (!auto || Math.abs(mult - 1) < 0.05) return `${sig(b)} h/s`;
+    return `${sig(b)} h/s × ${sig(mult)} (${mult > 1 ? 'zoomed out' : 'zoomed in'}) = ${sig(b * mult)} h/s`;
+  }
   // Move the simulated clock by the real time since the last frame. Stops exactly at endH.
+  // The speed passed in may be the zoom-scaled one, so it is bounded by the slider maximum x the largest multiplier.
   function advance(offsetH, dtSec, speed, endH) {
     const dt = clamp(Number.isFinite(dtSec) ? dtSec : 0, 0, MAX_FRAME_S);
-    const next = offsetH + dt * clampSpeed(speed);
+    const next = offsetH + dt * (Number.isFinite(speed) ? clamp(speed, MIN_SPEED, ABS_MAX) : MIN_SPEED);
     return next >= endH ? {offsetH: Math.max(offsetH, endH), done: true} : {offsetH: next, done: false};
   }
   // Simulated hours of playback left until the last voyage reaches its ETA.
@@ -31,7 +44,8 @@
     return Math.max(0, left - offsetH);
   }
 
-  const api = {MIN_SPEED, MAX_SPEED, MAX_FRAME_S, clampSpeed, sliderToSpeed, speedToSlider, speedCaption, advance, hoursUntilAllArrive};
+  const api = {MIN_SPEED, MAX_SPEED, MAX_FRAME_S, ZOOM_REF, clampSpeed, sliderToSpeed, speedToSlider, speedCaption, zoomLevel, zoomMultiplier,
+    effectiveSpeed, rateCaption, advance, hoursUntilAllArrive};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TLPlayback = api;
 })(typeof window !== 'undefined' ? window : globalThis);
