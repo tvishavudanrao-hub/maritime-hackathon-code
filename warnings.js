@@ -81,7 +81,14 @@
       detail: `risk ${prev} → ${next} · ${rerouted ? 'rerouted' : 'staying on course'}`, source: 'Model estimate of the recommended route'};
   }
 
-  const api = {SEVERITY, LOG_MAX, createCenter, update, active, dismiss, banner, bannerText, scenarioCauses, weatherCauses, newsCauses, riskCause};
+  // Possible stops, queues and ships gone quiet from live AIS (see ais_anomaly.py). They are possibilities, never incidents,
+  // so they stay at warning or below and keep the server's "possibly ... not confirmed" wording and source.
+  function aisCauses(anomalies) {
+    return (anomalies || []).map(a => ({key: 'ais:' + a.id, kind: 'ais', severity: SEVERITY[a.severity] ? (a.severity === 'critical' ? 'warning' : a.severity) : 'info',
+      title: a.title, detail: a.detail || '', source: a.source, loc: a.loc}));
+  }
+
+  const api = {SEVERITY, LOG_MAX, createCenter, update, active, dismiss, banner, bannerText, scenarioCauses, weatherCauses, newsCauses, riskCause, aisCauses};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TLWarnings = api;
 })(typeof window !== 'undefined' ? window : globalThis);

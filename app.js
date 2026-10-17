@@ -45,8 +45,58 @@ const fSigned = n => (n >= 0 ? '+' : '−') + fCompact(Math.abs(n));
 const fT = n => Math.round(n).toLocaleString('en-US') + ' t';
 const svgEl = (tag, attrs = {}) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; };
 const addTitle = (el, text) => { const t = svgEl('title'); t.textContent = text; el.appendChild(t); return el; };
-const project = ([lat, lon]) => [((lon + 31) / 170) * W, ((69 - lat) / 122) * H];
-const pathString = points => points.map((p, i) => `${i ? 'L' : 'M'}${project(p).map(x => x.toFixed(1)).join(',')}`).join(' ');
+// ---- map engine. With Leaflet loaded, the live map is the same dark Esri basemap the Streamlit Tideline uses, pannable and zoomable
+// anywhere in the world; our SVG layers sit in a Leaflet pane on top and are redrawn when the view settles. Without Leaflet
+// (offline, or the script blocked) the old regional SVG map is used, with its own pan and zoom.
+const DARK_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+const DARK_ATTR = 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ';
+let lm = null;   // {map, host, svg, frame, origin, lonShift, fitted} once the Leaflet map is running
+const project = ([lat, lon]) => lm ? lmProject(lat, lon) : [((lon + 31) / 170) * W, ((69 - lat) / 122) * H];
+function lmProject(lat, lon) {   // layer points do not change while panning, so ships and routes stay put as the pane moves
+  const p = lm.map.latLngToLayerPoint([lat, lon + lm.lonShift]).subtract(lm.origin);
+  return [p.x / TLMapLayer.UNIT, p.y / TLMapLayer.UNIT];
+}
+const pathString = points => TLMapLayer.unwrapLon(points).map((p, i) => `${i ? 'L' : 'M'}${project(p).map(x => x.toFixed(1)).join(',')}`).join(' ');
+const markerK = () => lm ? 1 : TLMapView.markerScale(state.mapView, W);   // on the Leaflet map symbols keep one size on screen
+const mapZoomLevel = () => lm ? TLMapLayer.zoomLevelOf(lm.map.getZoom()) : PB.zoomLevel(state.mapView.w, W);
+function initLeafletMap() {
+  if (lm || !window.L) return false;
+  const box = $('mapContainer'), svg = $('worldMap'), el = document.createElement('div');
+  el.id = 'leafletMap'; box.insertBefore(el, box.firstChild);
+  const map = L.map(el, {zoomControl: false, minZoom: 1.5, maxZoom: 12, zoomSnap: 0.5, zoomDelta: 1, wheelPxPerZoomLevel: 100, worldCopyJump: true,
+    zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false});
+  L.tileLayer(DARK_TILES, {attribution: DARK_ATTR, maxZoom: 12}).addTo(map);
+  L.control.scale({position: 'bottomright'}).addTo(map);
+  const pane = map.createPane('tlPane'), host = document.createElement('div');
+  pane.style.zIndex = 450; host.id = 'tlHost'; pane.appendChild(host); host.appendChild(svg);
+  box.classList.add('lf');
+  lm = {map, host, svg, frame: TLMapLayer.overlayFrame(1, 1), origin: L.point(0, 0), lonShift: 0, fitted: false};
+  let queued = false;
+  map.on('moveend zoomend resize', () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; syncOverlay(); }); } });
+  map.setView([25, 20], 2, {animate: false});
+  syncOverlay();
+  return true;
+}
+function syncOverlay() {   // place the overlay over the visible map (plus a margin) and redraw everything in its units
+  if (!lm) return;
+  const map = lm.map, size = map.getSize();
+  if (!lm.fitted && size.x > 50) { lm.fitted = true; map.fitBounds(TLMapLayer.HOME_BOUNDS, {animate: false}); return; }   // fires moveend, which syncs again
+  const f = lm.frame = TLMapLayer.overlayFrame(size.x, size.y);
+  lm.lonShift = TLMapLayer.lonShiftFor(map.getCenter().lng);   // draw in the world copy nearest the view
+  lm.origin = map.containerPointToLayerPoint([-f.padX, -f.padY]);
+  L.DomUtil.setPosition(lm.host, lm.origin);
+  lm.svg.setAttribute('width', f.width); lm.svg.setAttribute('height', f.height);
+  lm.svg.setAttribute('viewBox', f.viewBox); lm.svg.setAttribute('preserveAspectRatio', 'none');
+  redrawMapLayers();
+}
+function redrawMapLayers() {
+  if (!state.network) return;
+  drawNetwork(); drawMap(); drawVessels();
+  if (state.ais.on) drawAis();
+  drawWarnMarkers();
+  if (document.body.dataset.page === 'operations') drawOps();
+}
+const fitHome = () => lm && lm.map.fitBounds(TLMapLayer.HOME_BOUNDS, {animate: false});
 const haversine = (a, b) => {
   const r = Math.PI / 180, [a1, o1] = a, [a2, o2] = b;
   const v = Math.sin((a2 - a1) * r / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin((o2 - o1) * r / 2) ** 2;
@@ -458,7 +508,8 @@ function warningCauses() {
   const newsForRoute = [...(state.news.regions || [])].sort().join(',') === routeRegions().join(',');
   const causes = [...WC.scenarioCauses(events, limit, locOf),
     ...WC.weatherCauses(plan.legs, limit, node => plan.checkpoints.find(c => c.node === node)?.loc, weatherSource),
-    ...(newsForRoute ? WC.newsCauses(state.news.articles, zoneLabel) : [])];
+    ...(newsForRoute ? WC.newsCauses(state.news.articles, zoneLabel) : []),
+    ...(state.ais.on ? WC.aisCauses(state.ais.data?.anomalies) : [])];   // possible stops, queues and ships gone quiet (advisory only)
   // Risk is compared with the first plan for this ship, route and conditions, so it clears when the cause clears.
   const risk = Math.round(plan.summary.route_risk * 100), id = [state.ship, state.origin, state.destination, state.conditions, state.priority].join('|');
   if (id !== riskId) { riskId = id; riskBase = null; }
@@ -487,7 +538,7 @@ function renderBanner() {
 function drawWarnMarkers() {   // pulsing marker where the condition is; icon and colour both say how serious it is
   let g = $('warnSvg'); if (!g) { g = svgEl('g', {id: 'warnSvg'}); $('portsSvg').after(g); }
   g.innerHTML = '';
-  const k = TLMapView.markerScale(state.mapView, W);
+  const k = markerK();
   for (const c of WC.active(warnCenter)) {
     if (!c.loc) continue;
     const [x, y] = project(c.loc), s = WC.SEVERITY[c.severity], col = SEV_COLOR[c.severity];
@@ -550,6 +601,61 @@ function tradeoffChart(rows, front) {
     + `<text x="${(L + W2 - R) / 2}" y="${H2 - 6}" text-anchor="middle" class="to-ax">Cash cost →  (${fUSD(Math.max(0, x0))} to ${fUSD(x1)})</text>`
     + `<text transform="translate(12 ${(T + H2 - B) / 2}) rotate(-90)" text-anchor="middle" class="to-ax">CO₂ →  (${fT(Math.max(0, y0))} to ${fT(y1)})</text>`
     + dots + `</svg><div class="to-note">★ and a solid teal dot: Pareto-efficient (no other route beats it on cost, CO₂ and risk together). Dashed grey dot: dominated. Bigger dot: higher risk.</div>`;
+}
+
+// ---- incident search: type to find an incident, ranked by how much it matters to the current route (logic in incidents.js)
+const TI = window.TLIncidents;
+let incCatalog = null, incOptions = [], incActive = -1, incTimer = 0;
+function incidentContext() {
+  const plans = plansOf(state.plan), a = activePlan(), alts = plans.filter(r => r !== a);
+  const zonesOf = r => (r?.legs || []).flatMap(l => l.zones || []), portsOf = r => (r?.checkpoints || []).map(c => c.node), pointsOf = r => r?.path || [];
+  return {routeZones: zonesOf(a), routePorts: portsOf(a), routePoints: pointsOf(a),
+    altZones: alts.flatMap(zonesOf), altPorts: alts.flatMap(portsOf), altPoints: alts.flatMap(pointsOf)};
+}
+function renderIncidentList() {
+  const input = $('incInput'), list = $('incList'), q = input.value.trim();
+  if (!state.network) return;
+  incCatalog = incCatalog || TI.buildCatalog(state.network);
+  const taken = new Set(state.extraEvents.map(e => e.id));
+  const rows = TI.rank(incCatalog, q, incidentContext()).filter(r => !taken.has('inc-' + r.item.id)).slice(0, q ? 12 : 8);
+  incOptions = rows.map(r => ({item: r.item, group: r.group}));
+  if (q) incOptions.push({ask: q});
+  let html = '', last = '';
+  incOptions.forEach((o, i) => {
+    if (o.ask) { html += `<li role="option" id="inc-opt-${i}" data-i="${i}" aria-selected="false" class="inc-opt inc-ask"><span class="inc-ic" aria-hidden="true">💬</span><span>Ask Tideline: “${esc(o.ask)}” <small>(the assistant proposes a scenario)</small></span></li>`; return; }
+    if (o.group !== last) { html += `<li role="presentation" class="inc-group">${esc(o.group)}</li>`; last = o.group; }
+    html += `<li role="option" id="inc-opt-${i}" data-i="${i}" aria-selected="false" class="inc-opt sev-${o.item.severity}"><span class="inc-ic" aria-hidden="true">${TI.severityIcon(o.item.severity)}</span><span>${esc(o.item.label)}</span></li>`;
+  });
+  list.innerHTML = html || '<li role="presentation" class="inc-group">No incidents left to add</li>';
+  incActive = -1; input.removeAttribute('aria-activedescendant');
+  list.hidden = false; input.setAttribute('aria-expanded', 'true');
+}
+function closeIncidentList() { $('incList').hidden = true; $('incInput').setAttribute('aria-expanded', 'false'); $('incInput').removeAttribute('aria-activedescendant'); incActive = -1; }
+function setIncidentActive(i) {
+  const opts = [...$('incList').querySelectorAll('[role=option]')]; if (!opts.length) return;
+  incActive = (i + opts.length) % opts.length;
+  opts.forEach((el, k) => el.setAttribute('aria-selected', String(k === incActive)));
+  $('incInput').setAttribute('aria-activedescendant', opts[incActive].id); opts[incActive].scrollIntoView({block: 'nearest'});
+}
+function chooseIncident(i) {
+  const o = incOptions[i]; if (!o) return;
+  if (o.ask) { const q = o.ask; $('incInput').value = ''; closeIncidentList(); setSideTab('chat'); sendChat(q); return; }
+  const ev = TI.eventFor(o.item, new Date().toISOString());
+  if (!state.extraEvents.some(e => e.id === ev.id)) state.extraEvents.push(ev);
+  $('incInput').value = ''; closeIncidentList(); renderExtraEvents(); schedulePlan();
+}
+function attachIncidents() {
+  const input = $('incInput'), list = $('incList');
+  input.addEventListener('input', () => { clearTimeout(incTimer); incTimer = setTimeout(renderIncidentList, 120); });   // debounced
+  input.addEventListener('focus', renderIncidentList);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (list.hidden) renderIncidentList(); setIncidentActive(incActive + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setIncidentActive(incActive - 1); }
+    else if (e.key === 'Enter') { if (!list.hidden && incActive >= 0) { e.preventDefault(); chooseIncident(incActive); } else if (input.value.trim()) { e.preventDefault(); renderIncidentList(); chooseIncident(incOptions.length - 1); } }
+    else if (e.key === 'Escape') { if (!list.hidden) { e.preventDefault(); closeIncidentList(); } else input.value = ''; }
+  });
+  list.addEventListener('mousedown', e => { const li = e.target.closest('[role=option]'); if (li) { e.preventDefault(); chooseIncident(Number(li.dataset.i)); } });
+  input.addEventListener('blur', () => setTimeout(closeIncidentList, 120));
 }
 
 // Hazard overlay. Every marker pairs colour with a shape and a symbol, and the legend explains each one.
@@ -854,7 +960,7 @@ const TOGGLE_FOR = e => {
 };
 function renderExtraEvents() {
   const box = $('extraEvents'); if (!box) return;
-  box.innerHTML = state.extraEvents.map((e, i) => `<span class="extra-event" title="${esc('Source: ' + (e.source || 'chat'))}">${esc(e.description || e.type)}<button type="button" data-i="${i}" aria-label="Remove event">✕</button></span>`).join('');
+  box.innerHTML = state.extraEvents.map((e, i) => `<span class="extra-event" title="${esc('Source: ' + (e.source || 'chat'))}"><span aria-hidden="true">${TI.severityIcon(['zone_closure', 'port_closure'].includes(e.type) ? 'critical' : 'warning')}</span> ${esc(e.description || e.type)}<button type="button" data-i="${i}" aria-label="Remove event">✕</button></span>`).join('');
   box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { state.extraEvents.splice(Number(b.dataset.i), 1); renderExtraEvents(); schedulePlan(); }));
 }
 function applyRequest(req) {
@@ -1124,18 +1230,19 @@ function attachControls() {
 
   if (innerWidth >= 900 && $('mapLegend')) $('mapLegend').open = true;   // collapsible; open on wide screens
   $('zoomIn').addEventListener('click', () => zoom(.7)); $('zoomOut').addEventListener('click', () => zoom(1 / .7));
-  $('zoomReset').addEventListener('click', () => { state.mapView = {x: 0, y: 0, w: W, h: H}; updateView(); });
+  $('zoomReset').addEventListener('click', () => { if (lm) { fitHome(); return; } state.mapView = {x: 0, y: 0, w: W, h: H}; updateView(); });
   const svg = $('worldMap'), ptrs = new Map(); let pan = null, pinch = null;
   const mapPoint = (cx, cy) => { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); };
   // Zoom about the cursor (not the map centre), so scrolling over Asia zooms into Asia.
   svg.addEventListener('wheel', e => {
+    if (lm) return;
     e.preventDefault();
     const p = mapPoint(e.clientX, e.clientY);
     zoomTo(state.mapView.w * Math.exp(Math.max(-80, Math.min(80, e.deltaY)) * 0.0022), p.x, p.y);
   }, {passive: false});
-  svg.addEventListener('dblclick', e => { const p = mapPoint(e.clientX, e.clientY); zoomTo(state.mapView.w * .5, p.x, p.y); });
+  svg.addEventListener('dblclick', e => { if (lm) return; const p = mapPoint(e.clientX, e.clientY); zoomTo(state.mapView.w * .5, p.x, p.y); });
   svg.addEventListener('pointerdown', e => {
-    if (e.button > 0) return;
+    if (lm || e.button > 0) return;
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
     if (ptrs.size === 1) pan = {x: e.clientX, y: e.clientY, v: {...state.mapView}, s: svg.getScreenCTM().a, on: false};
     else if (ptrs.size === 2) { pan = null; const [p, q] = [...ptrs.values()]; pinch = {d: Math.hypot(p.x - q.x, p.y - q.y) || 1, w: state.mapView.w}; }
@@ -1160,8 +1267,9 @@ function attachControls() {
   svg.addEventListener('pointerup', endPtr); svg.addEventListener('pointercancel', endPtr);
 }
 function zoomTo(w, ax, ay) { state.mapView = TLMapView.zoomView(state.mapView, w, ax, ay, W, H); updateView(); }
-function zoom(factor) { zoomTo(state.mapView.w * factor); }
+function zoom(factor) { if (lm) { if (factor < 1) lm.map.zoomIn(); else lm.map.zoomOut(); return; } zoomTo(state.mapView.w * factor); }
 function updateView() {
+  if (lm) return;   // the Leaflet map keeps its own view
   const v = state.mapView; $('worldMap').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
   moveVessels(); if (state.ais.on) drawAis(); drawWarnMarkers(); syncSimUi();   // the speed label shows the zoom multiplier   // ship icons keep their on-screen size at every zoom
 }
@@ -1352,6 +1460,7 @@ function setAis(on) {
   clearInterval(state.ais.timer); clearInterval(state.ais.anim);
   if (on) { pollAis(); state.ais.timer = setInterval(pollAis, 5000); state.ais.anim = setInterval(drawAis, 1000); }
   else { $('aisSvg').innerHTML = ''; $('aisCard').hidden = true; state.ais.sel = null; }
+  updateWarnings();   // AIS alerts only count while the Live ships layer is on
 }
 async function pollAis() {
   try {
@@ -1362,6 +1471,7 @@ async function pollAis() {
   $('aisStatusText').textContent = d.status === 'live' ? `● ${d.ships.length} live ships · ${d.mode || ''}${d.tracked?.length ? ' · tracking ' + d.tracked.join(', ') : ''}`
     : d.status === 'connecting' ? '◌ Connecting to AISStream…' : `△ ${d.error || 'Live ships unavailable'}`;
   drawAis();
+  updateWarnings();   // new possible stops, queues or ships gone quiet
 }
 // Where the ship is now: last report, moved forward along its course at its reported speed (max 15 min).
 function deadReckon(s) {
@@ -1372,7 +1482,7 @@ function deadReckon(s) {
 }
 function drawAis() {
   const g = $('aisSvg'); if (!g) return; g.innerHTML = '';
-  const mk = TLMapView.markerScale(state.mapView, W);
+  const mk = markerK();
   const d = state.ais.data; if (!state.ais.on || !d?.ships) return;
   for (const s of d.ships) {
     const here = deadReckon(s), [x, y] = project(here), tracked = s.tracked, sel = s.mmsi === state.ais.sel;
@@ -1607,6 +1717,7 @@ function showPage(page) {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === page));
   const slot = $('slot-' + page), card = document.querySelector('.map-card');
   if (slot && card && card.parentElement !== slot) slot.appendChild(card);
+  if (lm) setTimeout(() => { lm.map.invalidateSize(); syncOverlay(); }, 0);   // the card changed size or page
   if (MAP_TITLES[page]) $('mapTitle').textContent = MAP_TITLES[page];
   if (location.hash !== '#' + page) history.replaceState(null, '', '#' + page);
   if (page === 'vessels') renderVessels();
@@ -1765,7 +1876,7 @@ function placeVessel(n) {
     }
   }
   const [x, y] = project(loc);
-  const k = TLMapView.markerScale(state.mapView, W);
+  const k = markerK();
   const key = `${live ? Math.round(live.frac * 100) : ''}${live?.arrived}|${k.toFixed(3)}`;
   if (Math.abs(x - n.x) < 0.25 && Math.abs(y - n.y) < 0.25 && key === n.key) return;   // moved less than a quarter pixel
   n.x = x; n.y = y; n.key = key;
@@ -1815,7 +1926,7 @@ function syncSimUi() {
   const s = state.sim, el = $('simClock'); if (!el) return;
   $('simPlay').textContent = s.playing ? '❚❚ Pause' : '▶ Play';
   $('simPlay').setAttribute('aria-pressed', String(s.playing));
-  const caption = PB.speedCaption(s.speed), mult = PB.zoomMultiplier(PB.zoomLevel(state.mapView.w, W));
+  const caption = PB.speedCaption(s.speed), mult = PB.zoomMultiplier(mapZoomLevel());
   const rate = PB.rateCaption(s.speed, mult, s.auto);   // e.g. '10 h/s × 2.3 (zoomed out) = 23 h/s'
   if ($('simSpeedLabel').textContent !== rate) $('simSpeedLabel').textContent = rate;
   $('simSpeedLabel').title = caption;
@@ -1826,7 +1937,7 @@ function syncSimUi() {
 }
 // Frame loop: runs only while playing. dt is capped in playback.js, so a hidden tab (rAF pauses) never jumps the clock.
 // Speed the ship should run at now: the slider speed, scaled by the map zoom when auto-scale is on (read here, in the frame loop).
-const simTarget = () => PB.effectiveSpeed(state.sim.speed, PB.zoomLevel(state.mapView.w, W), state.sim.auto);
+const simTarget = () => PB.effectiveSpeed(state.sim.speed, mapZoomLevel(), state.sim.auto);
 let simLast = 0, simRaf = 0, simUiAt = 0;
 function simFrame(ts) {
   simRaf = 0;
@@ -1947,6 +2058,8 @@ async function renderSettings() {
       card('Marine weather (Open-Meteo)', w.status === 'live' ? 'ok' : 'warn', `${esc(w.status || '—')}${w.points ? ` · ${w.points_with_data ?? ''}${w.points_with_data != null ? '/' : ''}${w.points} points` : ''}${w.retrieved_at ? ' · ' + esc(fmtEta(w.retrieved_at)) + ' UTC' : ''}`),
       card('Chokepoint traffic (IMF PortWatch)', pw.status === 'live' ? 'ok' : 'warn', `${esc(pw.status || '—')}${pw.latest_date ? ' · data to ' + esc(pw.latest_date) : ''}`),
       card('Live ships (AISStream)', a.status === 'live' ? 'ok' : a.status === 'off' ? '' : 'warn', `${esc(a.status || '—')}${a.ships != null ? ` · ${a.ships} ships · ${a.messages || 0} messages` : ''}${a.error ? ' · ' + esc(a.error) : ''}`),
+      card('AIS chokepoint traffic (advisory)', '', a.status !== 'live' ? 'Needs live AIS (set AISSTREAM_API_KEY).'
+        : `${Object.entries(a.traffic || {}).map(([box, t]) => `${esc(box)}: ${esc(t.note)}`).join(' · ') || 'No ships heard in the watched areas yet.'} Source: AISStream.io. A sample of ships heard, not a full transit count; it does not change any plan or risk score.${a.anomalies ? ` ${a.anomalies} possible alert${a.anomalies === 1 ? '' : 's'} raised (not confirmed).` : ''}`),
       card('Sanctions list (US OFAC SDN)', sx.status === 'loaded' ? 'ok' : 'warn', `${esc(sx.status || '—')}${sx.vessels ? ` · ${sx.vessels.toLocaleString()} vessels` : ''}${sx.error ? ' · ' + esc(sx.error) : ''}`),
       card('Official warnings (NGA)', ad.status === 'live' ? 'ok' : 'warn', `${esc(ad.status || '—')} · ${ad.warnings ?? 0} security warnings on risk zones`),
       card('Voyage monitoring', m.running ? 'ok' : 'warn', `Re-checks approved voyages every ${m.minutes} min`),
@@ -2053,7 +2166,8 @@ async function init() {
     attachOps();
     attachCalibration();
     attachShell();
-    attachSim(); attachWarnings();
+    attachSim(); attachWarnings(); attachIncidents();
+    initLeafletMap();   // after the page layout exists; falls back to the SVG map when Leaflet is not available
     syncProgress();
     schedulePlan(0);
     pullNews();

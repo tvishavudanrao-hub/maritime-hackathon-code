@@ -126,6 +126,26 @@ test('news causes: only on-route disruption headlines, grouped per region, never
   assert.match(out[0].source, /unverified/);
 });
 
+test('AIS anomalies become advisory warnings that keep their wording, source and place', () => {
+  const anomalies = [
+    {id: 'stopped_cluster:Suez Canal', kind: 'stopped_cluster', severity: 'warning', title: '4 vessels possibly stopped in Suez Canal', detail: 'A queue or blockage is possible; not confirmed.', loc: [30.5, 32.4], source: 'AISStream.io (live AIS, advisory)'},
+    {id: 'stopped_vessel:111', kind: 'stopped_vessel', severity: 'info', title: 'X possibly stopped', detail: 'd', loc: [12, 43], source: 'AISStream.io (live AIS, advisory)'},
+  ];
+  const out = W.aisCauses(anomalies);
+  assert.deepStrictEqual(out.map(c => [c.key, c.kind, c.severity]), [['ais:stopped_cluster:Suez Canal', 'ais', 'warning'], ['ais:stopped_vessel:111', 'ais', 'info']]);
+  assert.deepStrictEqual(out[0].loc, [30.5, 32.4]);
+  assert.match(out[0].title, /possibly/);
+  assert.match(out[0].source, /AISStream/);
+  assert.match(out[0].detail, /not confirmed/);
+});
+
+test('AIS causes never exceed warning (they are possibilities, not incidents) and tolerate missing data', () => {
+  assert.strictEqual(W.aisCauses([{id: 'a', severity: 'critical', title: 't', loc: [1, 2], source: 's'}])[0].severity, 'warning');
+  assert.strictEqual(W.aisCauses([{id: 'a', severity: 'bogus', title: 't', loc: [1, 2], source: 's'}])[0].severity, 'info');
+  assert.deepStrictEqual(W.aisCauses(undefined), []);
+  assert.deepStrictEqual(W.aisCauses(null), []);
+});
+
 test('risk cause: reports the move in points and what the plan did', () => {
   assert.strictEqual(W.riskCause(34, 38, false), null);
   const up = W.riskCause(34, 52, false);

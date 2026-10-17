@@ -22,6 +22,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+import ais_anomaly
 import sanctions
 
 URL = os.getenv('AISSTREAM_WS_URL', 'wss://stream.aisstream.io/v0/stream')
@@ -153,11 +154,21 @@ def parse_message(raw):
     return rec['mmsi'], rec
 
 
+def _network_ports():
+    """Port positions from the planner's network (loaded lazily: the planner does not depend on this module)."""
+    try:
+        from optimizer import GRAPH
+        return GRAPH.ports
+    except Exception:
+        return {}
+
+
 class Tracker:
     def __init__(self):
         self.lock = threading.Lock()
         self.ships = {}
         self.tracked = set()
+        self.traffic = ais_anomaly.TrafficLog()   # ships heard per watched area per window, for the traffic note
         self.status = {'status': 'off', 'error': None, 'connected_at': None, 'messages': 0}
         self._restart = threading.Event()
         self.thread = None
@@ -173,8 +184,17 @@ class Tracker:
                 if v is not None:
                     s[k] = v
             if 'lat' in rec:
+                now = time.time()
                 s['trail'].append((rec['lat'], rec['lon']))
-                s['seen'] = time.time()
+                s['seen'] = now
+                sog = s.get('sog')
+                if isinstance(sog, (int, float)) and sog < ais_anomaly.STOPPED_KN:
+                    s.setdefault('still_since', now)   # when it stopped, for the possible-stop and possible-queue alerts
+                else:
+                    s.pop('still_since', None)
+                box = ais_anomaly.box_of(rec['lat'], rec['lon'], WATCH_BOXES)
+                if box:
+                    self.traffic.record(box, mmsi, now)
             self.status['messages'] += 1
 
     def snapshot(self):
@@ -190,8 +210,12 @@ class Tracker:
                 s['sanctions'] = {'status': sc['status'], 'program': sc['matches'][0].get('program'), 'listed_name': sc['matches'][0]['name'],
                                   'matched_on': sc['matches'][0]['matched_on']}
         with self.lock:
-            return {**self.status, 'tracked': sorted(self.tracked), 'watch_boxes': WATCH_BOXES, 'ships': ships,
-                    'note': 'Live AIS via AISStream.io. Ships report their own positions; data can be delayed or missing.'}
+            tracked, status = set(self.tracked), dict(self.status)
+            traffic = self.traffic.summary(now)
+        return {**status, 'tracked': sorted(tracked), 'watch_boxes': WATCH_BOXES, 'ships': ships,
+                # advisory only: possible stops, queues and ships gone quiet, and ships heard per area against earlier windows
+                'anomalies': ais_anomaly.detect(ships, now, WATCH_BOXES, _network_ports(), tracked), 'traffic': traffic,
+                'note': 'Live AIS via AISStream.io. Ships report their own positions; data can be delayed or missing.'}
 
     def track(self, mmsi):
         mmsi = str(mmsi).strip()

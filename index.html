@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#f3f6fa"/>
   <title>Tideline — Fleet Operations</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <meta name="description" content="Tideline: AI voyage and fleet decisions — routes, fuel, risk, insurance and compliance, monitored live."/>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -107,6 +108,29 @@
     .to-legend{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px;font-size:12px}.to-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
     .to-note{font-size:12px;color:var(--muted);line-height:1.45;margin:4px 0 8px}.to-chart{width:100%;max-width:420px;height:auto;display:block;margin-top:6px;background:#fafcfe;border:1px solid var(--line);border-radius:10px}
     .to-pt{font:600 10.5px 'Inter';fill:#0f1f33;paint-order:stroke;stroke:#fff;stroke-width:3}.to-ax{font:600 10px 'Inter';fill:#64748b}
+    .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    .inc-search{position:relative;margin:4px 0 10px}.inc-search input{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff}
+    .inc-search input:focus{outline:2px solid #2563eb55;border-color:#2563eb}
+    #incList{position:absolute;left:0;right:0;top:100%;z-index:6;margin:4px 0 0;padding:4px;list-style:none;max-height:300px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0f1f3322}
+    .inc-group{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 8px 2px}
+    .inc-opt{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px}.inc-opt[aria-selected=true],.inc-opt:hover{background:#eff6ff}
+    .inc-ic{width:18px;text-align:center;flex:none}.inc-opt.sev-critical .inc-ic{color:#dc2626}.inc-opt.sev-warning .inc-ic{color:#d97706}.inc-ask small{color:var(--muted)}
+    /* Leaflet map: dark basemap like the Streamlit Tideline, our SVG layers in a pane on top */
+    .map-container.lf{background:#0b1a2a;cursor:auto}.map-container.lf:active{cursor:auto}
+    #leafletMap{position:absolute;inset:0;z-index:0;isolation:isolate;background:#0b1a2a;font:inherit}
+    #tlHost{position:absolute;left:0;top:0;pointer-events:none}
+    .map-container.lf #tlHost #worldMap{position:absolute;left:0;top:0;width:auto;height:auto;max-width:none;touch-action:auto;cursor:auto;pointer-events:none}
+    #tlHost svg *{pointer-events:auto}#tlHost svg #gridSvg *,#tlHost svg #landSvg *,#tlHost svg #mapNamesSvg *,#tlHost svg #networkSvg *,#tlHost svg .warn-pulse{pointer-events:none}
+    .lf #gridSvg,.lf #landSvg,.lf #mapNamesSvg{display:none}
+    .lf .leaflet-control-attribution{background:#0f1f33cc;color:#9fb7cc;font-size:10.5px}.lf .leaflet-attribution-flag{width:1em!important;height:.67em!important;display:inline!important}.lf .leaflet-control-attribution a{color:#7fb2e5}
+    .lf .leaflet-control-scale-line{background:#0f1f33cc;color:#c8dbe9;border-color:#6b8399}
+    .lf .map-overlay-label{background:#0f1f33d9;color:#9fb7cc;border-color:#2b4157}
+    .lf .map-port-label{fill:#e2edf7;stroke:#0b1a2a}.lf .map-note,.lf .map-title-label{fill:#8aa4bd}
+    .lf .haz-label{stroke:#0b1a2a}.lf .haz-label.closed,.lf .haz-label.high{fill:#fca5a5}.lf .haz-label.elevated{fill:#fcd34d}
+    .lf .haz-mark{stroke:#0b1a2a}.lf .haz-mark.closed,.lf .haz-mark.high{fill:#fca5a5}.lf .haz-mark.elevated{fill:#fcd34d}
+    .lf #routesSvg .route-line.secondary{stroke:#8ba5b8}
+    .lf .map-legend2{background:#0f1f33f2;border-color:#2b4157;color:#c8dbe9;box-shadow:0 2px 10px #00000066}.lf .map-legend2 summary{color:#e6f0f8}.lf .lg-h{color:#7f97ad}
+    .lf .map-legend2 .lg-body{scrollbar-color:#4a6178 #0f1f33}
     .cond-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:10px 14px;border-radius:11px;border:1px solid var(--line);border-left:6px solid #2563eb;background:#eff6ff;color:#1e3a8a;font-size:13.5px;cursor:pointer}
     .cond-banner[hidden]{display:none}.cond-banner.sev-warning{border-left-color:#d97706;background:#fffbeb;color:#78350f}.cond-banner.sev-critical{border-left-color:#dc2626;background:#fef2f2;color:#7f1d1d}
     .cb-sev{font-weight:800;white-space:nowrap}.cb-text{flex:1 1 260px;font-weight:600}.cb-more,.cb-src{font-size:12px;opacity:.8}.cb-x{border:0;background:none;font-size:16px;line-height:1;cursor:pointer;color:inherit;padding:4px 6px;border-radius:6px}.cb-x:hover{background:#0000001a}
@@ -343,6 +367,7 @@
       <details class="ctl" open><summary>World &amp; scenarios</summary>
         <div class="field-block"><div class="field-label">World conditions</div><div class="seg" id="condMode"><button type="button" data-cond="today" class="active">◉ Today</button><button type="button" data-cond="normal">○ Normal times</button></div><div class="hint" id="condHint">Sourced snapshot of real conditions: fuel prices, war-risk premiums, security, live chokepoint traffic.</div></div>
         <div class="field-label" style="margin-top:4px">What if…</div>
+        <div class="inc-search"><label class="sr-only" for="incInput">Search incidents to add to the plan</label><input id="incInput" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="incList" aria-haspopup="listbox" autocomplete="off" placeholder="Search incidents: Red Sea, Suez closed, storm, Hamburg…"><ul id="incList" role="listbox" aria-label="Matching incidents, most relevant to your route first" hidden></ul></div>
         <label class="toggle-row"><span><strong>Red Sea passage closed</strong><span class="description">Bab el-Mandeb closure → hard rule</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="blockBab"><span class="track"></span></span></label>
         <label class="toggle-row"><span><strong>Red Sea threat raised</strong><span class="description">Higher risk + war-risk premium</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="threatBab"><span class="track"></span></span></label>
         <label class="toggle-row"><span><strong>Insurers cancel Red Sea war cover</strong><span class="description">Not insured there → re-route (or buy cover)</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="coverBab"><span class="track"></span></span></label>
@@ -452,10 +477,13 @@
       <form class="chat-form" id="chatForm"><textarea id="chatInput" rows="2" placeholder="e.g. Switch to MV Tern and avoid the Red Sea, or paste a report…" aria-label="Message to Tideline" autocomplete="off"></textarea><button type="submit" class="chat-send" id="chatSend">Send</button></form>
     </div></aside>
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card"><button type="button" class="x" id="modalClose" aria-label="Close">✕</button><div id="modalBody"></div></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
 <script src="/playback.js?v=tideline-11" defer></script>
 <script src="/mapview.js?v=tideline-5" defer></script>
-<script src="/warnings.js?v=tideline-9" defer></script>
+<script src="/maplayer.js?v=tideline-18" defer></script>
+<script src="/warnings.js?v=tideline-15" defer></script>
 <script src="/compare.js?v=tideline-13" defer></script>
-<script src="/app.js?v=tideline-13" defer></script>
+<script src="/incidents.js?v=tideline-14" defer></script>
+<script src="/app.js?v=tideline-18" defer></script>
 </body>
 </html>
