@@ -30,6 +30,12 @@ Then open **http://127.0.0.1:3001** in a browser. The webserver listens on **all
 
 For another local port: `PORT=4000 python3 server.py` (PowerShell: `$env:PORT=4000; py -3 server.py`).
 
+### Keeping secrets out of git
+
+API keys (`AISSTREAM_API_KEY`, `OPENAI_API_KEY`) are read only by the server, from environment variables, and never sent to the browser. Set them in your shell locally, or in the Environment tab of the Render service. `.env.example` lists every variable with placeholders; copy it for your own notes but never commit the copy. `.gitignore` already excludes `.env*` (except the example), `.venv/`, key and certificate files, `runtime/` and similar.
+
+Run `python tools/secret_scan.py --install-hook` once after cloning. It installs a git pre-push hook that scans the commits you are about to push for key-like strings and for files that must never be committed, and stops the push if it finds any (it prints where, never the secret itself). You can also run `python tools/secret_scan.py` (tracked files) or `--history` (every commit) by hand. If a real key was ever committed, revoke it at the provider: deleting it from the repo does not make it safe again.
+
 ### Running on a small host (for example Render)
 
 Planning is CPU-bound Python, so a shared or throttled CPU can be 10 to 30 times slower than a laptop. The server keeps that manageable:
