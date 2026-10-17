@@ -45,8 +45,58 @@ const fSigned = n => (n >= 0 ? '+' : '−') + fCompact(Math.abs(n));
 const fT = n => Math.round(n).toLocaleString('en-US') + ' t';
 const svgEl = (tag, attrs = {}) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; };
 const addTitle = (el, text) => { const t = svgEl('title'); t.textContent = text; el.appendChild(t); return el; };
-const project = ([lat, lon]) => [((lon + 31) / 170) * W, ((69 - lat) / 122) * H];
-const pathString = points => points.map((p, i) => `${i ? 'L' : 'M'}${project(p).map(x => x.toFixed(1)).join(',')}`).join(' ');
+// ---- map engine. With Leaflet loaded, the live map is the same dark Esri basemap the Streamlit Tideline uses, pannable and zoomable
+// anywhere in the world; our SVG layers sit in a Leaflet pane on top and are redrawn when the view settles. Without Leaflet
+// (offline, or the script blocked) the old regional SVG map is used, with its own pan and zoom.
+const DARK_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+const DARK_ATTR = 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ';
+let lm = null;   // {map, host, svg, frame, origin, lonShift, fitted} once the Leaflet map is running
+const project = ([lat, lon]) => lm ? lmProject(lat, lon) : [((lon + 31) / 170) * W, ((69 - lat) / 122) * H];
+function lmProject(lat, lon) {   // layer points do not change while panning, so ships and routes stay put as the pane moves
+  const p = lm.map.latLngToLayerPoint([lat, lon + lm.lonShift]).subtract(lm.origin);
+  return [p.x / TLMapLayer.UNIT, p.y / TLMapLayer.UNIT];
+}
+const pathString = points => TLMapLayer.unwrapLon(points).map((p, i) => `${i ? 'L' : 'M'}${project(p).map(x => x.toFixed(1)).join(',')}`).join(' ');
+const markerK = () => lm ? 1 : TLMapView.markerScale(state.mapView, W);   // on the Leaflet map symbols keep one size on screen
+const mapZoomLevel = () => lm ? TLMapLayer.zoomLevelOf(lm.map.getZoom()) : PB.zoomLevel(state.mapView.w, W);
+function initLeafletMap() {
+  if (lm || !window.L) return false;
+  const box = $('mapContainer'), svg = $('worldMap'), el = document.createElement('div');
+  el.id = 'leafletMap'; box.insertBefore(el, box.firstChild);
+  const map = L.map(el, {zoomControl: false, minZoom: 1.5, maxZoom: 12, zoomSnap: 0.5, zoomDelta: 1, wheelPxPerZoomLevel: 100, worldCopyJump: true,
+    zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false});
+  L.tileLayer(DARK_TILES, {attribution: DARK_ATTR, maxZoom: 12}).addTo(map);
+  L.control.scale({position: 'bottomright'}).addTo(map);
+  const pane = map.createPane('tlPane'), host = document.createElement('div');
+  pane.style.zIndex = 450; host.id = 'tlHost'; pane.appendChild(host); host.appendChild(svg);
+  box.classList.add('lf');
+  lm = {map, host, svg, frame: TLMapLayer.overlayFrame(1, 1), origin: L.point(0, 0), lonShift: 0, fitted: false};
+  let queued = false;
+  map.on('moveend zoomend resize', () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; syncOverlay(); }); } });
+  map.setView([25, 20], 2, {animate: false});
+  syncOverlay();
+  return true;
+}
+function syncOverlay() {   // place the overlay over the visible map (plus a margin) and redraw everything in its units
+  if (!lm) return;
+  const map = lm.map, size = map.getSize();
+  if (!lm.fitted && size.x > 50) { lm.fitted = true; map.fitBounds(TLMapLayer.HOME_BOUNDS, {animate: false}); return; }   // fires moveend, which syncs again
+  const f = lm.frame = TLMapLayer.overlayFrame(size.x, size.y);
+  lm.lonShift = TLMapLayer.lonShiftFor(map.getCenter().lng);   // draw in the world copy nearest the view
+  lm.origin = map.containerPointToLayerPoint([-f.padX, -f.padY]);
+  L.DomUtil.setPosition(lm.host, lm.origin);
+  lm.svg.setAttribute('width', f.width); lm.svg.setAttribute('height', f.height);
+  lm.svg.setAttribute('viewBox', f.viewBox); lm.svg.setAttribute('preserveAspectRatio', 'none');
+  redrawMapLayers();
+}
+function redrawMapLayers() {
+  if (!state.network) return;
+  drawNetwork(); drawMap(); drawVessels();
+  if (state.ais.on) drawAis();
+  drawWarnMarkers();
+  if (document.body.dataset.page === 'operations') drawOps();
+}
+const fitHome = () => lm && lm.map.fitBounds(TLMapLayer.HOME_BOUNDS, {animate: false});
 const haversine = (a, b) => {
   const r = Math.PI / 180, [a1, o1] = a, [a2, o2] = b;
   const v = Math.sin((a2 - a1) * r / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin((o2 - o1) * r / 2) ** 2;
@@ -488,7 +538,7 @@ function renderBanner() {
 function drawWarnMarkers() {   // pulsing marker where the condition is; icon and colour both say how serious it is
   let g = $('warnSvg'); if (!g) { g = svgEl('g', {id: 'warnSvg'}); $('portsSvg').after(g); }
   g.innerHTML = '';
-  const k = TLMapView.markerScale(state.mapView, W);
+  const k = markerK();
   for (const c of WC.active(warnCenter)) {
     if (!c.loc) continue;
     const [x, y] = project(c.loc), s = WC.SEVERITY[c.severity], col = SEV_COLOR[c.severity];
@@ -1180,18 +1230,19 @@ function attachControls() {
 
   if (innerWidth >= 900 && $('mapLegend')) $('mapLegend').open = true;   // collapsible; open on wide screens
   $('zoomIn').addEventListener('click', () => zoom(.7)); $('zoomOut').addEventListener('click', () => zoom(1 / .7));
-  $('zoomReset').addEventListener('click', () => { state.mapView = {x: 0, y: 0, w: W, h: H}; updateView(); });
+  $('zoomReset').addEventListener('click', () => { if (lm) { fitHome(); return; } state.mapView = {x: 0, y: 0, w: W, h: H}; updateView(); });
   const svg = $('worldMap'), ptrs = new Map(); let pan = null, pinch = null;
   const mapPoint = (cx, cy) => { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); };
   // Zoom about the cursor (not the map centre), so scrolling over Asia zooms into Asia.
   svg.addEventListener('wheel', e => {
+    if (lm) return;
     e.preventDefault();
     const p = mapPoint(e.clientX, e.clientY);
     zoomTo(state.mapView.w * Math.exp(Math.max(-80, Math.min(80, e.deltaY)) * 0.0022), p.x, p.y);
   }, {passive: false});
-  svg.addEventListener('dblclick', e => { const p = mapPoint(e.clientX, e.clientY); zoomTo(state.mapView.w * .5, p.x, p.y); });
+  svg.addEventListener('dblclick', e => { if (lm) return; const p = mapPoint(e.clientX, e.clientY); zoomTo(state.mapView.w * .5, p.x, p.y); });
   svg.addEventListener('pointerdown', e => {
-    if (e.button > 0) return;
+    if (lm || e.button > 0) return;
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
     if (ptrs.size === 1) pan = {x: e.clientX, y: e.clientY, v: {...state.mapView}, s: svg.getScreenCTM().a, on: false};
     else if (ptrs.size === 2) { pan = null; const [p, q] = [...ptrs.values()]; pinch = {d: Math.hypot(p.x - q.x, p.y - q.y) || 1, w: state.mapView.w}; }
@@ -1216,8 +1267,9 @@ function attachControls() {
   svg.addEventListener('pointerup', endPtr); svg.addEventListener('pointercancel', endPtr);
 }
 function zoomTo(w, ax, ay) { state.mapView = TLMapView.zoomView(state.mapView, w, ax, ay, W, H); updateView(); }
-function zoom(factor) { zoomTo(state.mapView.w * factor); }
+function zoom(factor) { if (lm) { if (factor < 1) lm.map.zoomIn(); else lm.map.zoomOut(); return; } zoomTo(state.mapView.w * factor); }
 function updateView() {
+  if (lm) return;   // the Leaflet map keeps its own view
   const v = state.mapView; $('worldMap').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
   moveVessels(); if (state.ais.on) drawAis(); drawWarnMarkers(); syncSimUi();   // the speed label shows the zoom multiplier   // ship icons keep their on-screen size at every zoom
 }
@@ -1430,7 +1482,7 @@ function deadReckon(s) {
 }
 function drawAis() {
   const g = $('aisSvg'); if (!g) return; g.innerHTML = '';
-  const mk = TLMapView.markerScale(state.mapView, W);
+  const mk = markerK();
   const d = state.ais.data; if (!state.ais.on || !d?.ships) return;
   for (const s of d.ships) {
     const here = deadReckon(s), [x, y] = project(here), tracked = s.tracked, sel = s.mmsi === state.ais.sel;
@@ -1665,6 +1717,7 @@ function showPage(page) {
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === page));
   const slot = $('slot-' + page), card = document.querySelector('.map-card');
   if (slot && card && card.parentElement !== slot) slot.appendChild(card);
+  if (lm) setTimeout(() => { lm.map.invalidateSize(); syncOverlay(); }, 0);   // the card changed size or page
   if (MAP_TITLES[page]) $('mapTitle').textContent = MAP_TITLES[page];
   if (location.hash !== '#' + page) history.replaceState(null, '', '#' + page);
   if (page === 'vessels') renderVessels();
@@ -1823,7 +1876,7 @@ function placeVessel(n) {
     }
   }
   const [x, y] = project(loc);
-  const k = TLMapView.markerScale(state.mapView, W);
+  const k = markerK();
   const key = `${live ? Math.round(live.frac * 100) : ''}${live?.arrived}|${k.toFixed(3)}`;
   if (Math.abs(x - n.x) < 0.25 && Math.abs(y - n.y) < 0.25 && key === n.key) return;   // moved less than a quarter pixel
   n.x = x; n.y = y; n.key = key;
@@ -1873,7 +1926,7 @@ function syncSimUi() {
   const s = state.sim, el = $('simClock'); if (!el) return;
   $('simPlay').textContent = s.playing ? '❚❚ Pause' : '▶ Play';
   $('simPlay').setAttribute('aria-pressed', String(s.playing));
-  const caption = PB.speedCaption(s.speed), mult = PB.zoomMultiplier(PB.zoomLevel(state.mapView.w, W));
+  const caption = PB.speedCaption(s.speed), mult = PB.zoomMultiplier(mapZoomLevel());
   const rate = PB.rateCaption(s.speed, mult, s.auto);   // e.g. '10 h/s × 2.3 (zoomed out) = 23 h/s'
   if ($('simSpeedLabel').textContent !== rate) $('simSpeedLabel').textContent = rate;
   $('simSpeedLabel').title = caption;
@@ -1884,7 +1937,7 @@ function syncSimUi() {
 }
 // Frame loop: runs only while playing. dt is capped in playback.js, so a hidden tab (rAF pauses) never jumps the clock.
 // Speed the ship should run at now: the slider speed, scaled by the map zoom when auto-scale is on (read here, in the frame loop).
-const simTarget = () => PB.effectiveSpeed(state.sim.speed, PB.zoomLevel(state.mapView.w, W), state.sim.auto);
+const simTarget = () => PB.effectiveSpeed(state.sim.speed, mapZoomLevel(), state.sim.auto);
 let simLast = 0, simRaf = 0, simUiAt = 0;
 function simFrame(ts) {
   simRaf = 0;
@@ -2114,6 +2167,7 @@ async function init() {
     attachCalibration();
     attachShell();
     attachSim(); attachWarnings(); attachIncidents();
+    initLeafletMap();   // after the page layout exists; falls back to the SVG map when Leaflet is not available
     syncProgress();
     schedulePlan(0);
     pullNews();
