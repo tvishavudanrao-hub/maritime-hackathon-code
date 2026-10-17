@@ -258,6 +258,7 @@ function renderRoutes() {
   if (!plans.length && !(p.change && p.baseline)) html = '<div class="empty-feed">No feasible plan under the current constraints.</div>' + html;
   list.innerHTML = html;
   $('routeCount').textContent = `${plans.length} feasible corridor${plans.length === 1 ? '' : 's'} · ${p.search.plans_evaluated} full plans evaluated`;
+  renderTradeoff();
   list.querySelectorAll('.route-choice[data-corridor]').forEach(el => {
     const f = () => { state.preview = el.dataset.corridor; render(); pullWeather(); };
     el.addEventListener('click', f);
@@ -509,6 +510,46 @@ function attachWarnings() {
     $('condLog').open = true; $('condLog').scrollIntoView({behavior: 'smooth', block: 'nearest'});
   });
   renderCondLog();
+}
+
+// ---- how cost, carbon and risk weigh in: score shares, why the winner won, and a cost-vs-CO2 Pareto chart (maths in compare.js)
+const TC = window.TLCompare;
+const SHARE_COLOR = {cost: '#0f3b63', carbon: '#16a34a', risk: '#dc2626', time: '#d97706'};
+const SHARE_LABEL = {cost: 'Cost', carbon: 'Carbon', risk: 'Risk', time: 'Time'};
+function renderTradeoff() {
+  const el = $('tradeoff'), plans = plansOf(state.plan);
+  if (!plans.length) { el.hidden = true; return; }
+  const rows = plans.map(r => ({id: r.corridor, label: r.corridor_label, days: r.summary.days, cost: r.costs.cash_total_usd, co2: r.summary.co2_t,
+    risk: Math.round(r.summary.route_risk * 100)}));
+  const front = TC.paretoFront(rows), shares = TC.scoreShares(plans[0].decision), why = TC.whyLine(rows[0], rows[1]);
+  const bar = Object.keys(SHARE_LABEL).filter(k => shares[k] > 0).map(k =>
+    `<span class="to-seg" style="flex:${shares[k]};background:${SHARE_COLOR[k]}" title="${SHARE_LABEL[k]}: ${shares[k]}% of the decision score">${shares[k] >= 9 ? SHARE_LABEL[k] + ' ' + shares[k] + '%' : ''}</span>`).join('');
+  const legend = Object.keys(SHARE_LABEL).map(k => `<span><i style="background:${SHARE_COLOR[k]}"></i>${SHARE_LABEL[k]} ${shares[k]}%</span>`).join('');
+  el.hidden = false;
+  el.innerHTML = `<div class="to-head">How cost, carbon and risk weigh in</div>`
+    + (why ? `<div class="to-why">${esc(why)}</div>` : '')
+    + `<div class="to-bar" role="img" aria-label="Share of the decision score: ${Object.keys(SHARE_LABEL).map(k => SHARE_LABEL[k] + ' ' + shares[k] + ' percent').join(', ')}">${bar}</div>`
+    + `<div class="to-legend">${legend}</div>`
+    + `<div class="to-note">Shares of the optimized route's decision score (cash cost, carbon at your carbon price, risk loss, time premium). The sliders under Optimize set those prices, so moving them shifts these shares and can change the winner.</div>`
+    + tradeoffChart(rows, front);
+}
+function tradeoffChart(rows, front) {
+  const W2 = 340, H2 = 190, L = 48, R = 18, T = 14, B = 36;
+  const span = (vals, pad) => { const lo = Math.min(...vals), hi = Math.max(...vals), d = (hi - lo) || Math.max(1, Math.abs(hi) * 0.1); return [lo - d * pad, hi + d * pad]; };
+  const [x0, x1] = span(rows.map(r => r.cost), 0.35), [y0, y1] = span(rows.map(r => r.co2), 0.35);
+  const X = v => L + (v - x0) / (x1 - x0) * (W2 - L - R), Y = v => H2 - B - (v - y0) / (y1 - y0) * (H2 - T - B);
+  const dots = rows.map(r => {
+    const eff = front.has(r.id), x = X(r.cost), y = Y(r.co2), rad = 5 + r.risk / 10, right = x < W2 * 0.6;
+    const tip = `${r.label}: ${fUSD(r.cost)} cash, ${fT(r.co2)} CO₂, risk ${r.risk}/100, ${r.days.toFixed(1)} days · ${eff ? 'Pareto-efficient: no other route is better on cost, CO₂ and risk at once' : 'dominated: another route is at least as good on all three'}`;
+    return `<g><title>${esc(tip)}</title><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad.toFixed(1)}" fill="${eff ? '#0d9488' : '#e2e8f0'}" stroke="${eff ? '#0f3b63' : '#94a3b8'}" stroke-width="1.6" ${eff ? '' : 'stroke-dasharray="3 2"'}/>`
+      + `<text x="${(right ? x + rad + 4 : x - rad - 4).toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="${right ? 'start' : 'end'}" class="to-pt">${eff ? '★ ' : ''}${esc(r.label.replace('Via ', ''))} · risk ${r.risk}</text></g>`;
+  }).join('');
+  const label = `Cost against CO₂ for ${rows.length} route${rows.length === 1 ? '' : 's'}; ${rows.filter(r => front.has(r.id)).map(r => r.label).join(', ')} ${front.size === 1 ? 'is' : 'are'} Pareto-efficient`;
+  return `<svg class="to-chart" viewBox="0 0 ${W2} ${H2}" role="img" aria-label="${esc(label)}">`
+    + `<line x1="${L}" y1="${H2 - B}" x2="${W2 - R}" y2="${H2 - B}" stroke="#cbd5e1"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H2 - B}" stroke="#cbd5e1"/>`
+    + `<text x="${(L + W2 - R) / 2}" y="${H2 - 6}" text-anchor="middle" class="to-ax">Cash cost →  (${fUSD(Math.max(0, x0))} to ${fUSD(x1)})</text>`
+    + `<text transform="translate(12 ${(T + H2 - B) / 2}) rotate(-90)" text-anchor="middle" class="to-ax">CO₂ →  (${fT(Math.max(0, y0))} to ${fT(y1)})</text>`
+    + dots + `</svg><div class="to-note">★ and a solid teal dot: Pareto-efficient (no other route beats it on cost, CO₂ and risk together). Dashed grey dot: dominated. Bigger dot: higher risk.</div>`;
 }
 
 // Hazard overlay. Every marker pairs colour with a shape and a symbol, and the legend explains each one.
