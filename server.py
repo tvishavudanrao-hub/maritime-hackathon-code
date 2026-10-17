@@ -416,7 +416,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     port=int(os.getenv('PORT','3001'))
-    host=os.getenv('HOST','127.0.0.1')
+    host=os.getenv('HOST','0.0.0.0')
     get_fuel_model(FLEET_LIST)  # train the fuel model once at startup (simulated data, about 0.1 s)
     import calibration
     n_cal=calibration.load_saved()   # ships calibrated on noon reports earlier keep their models
