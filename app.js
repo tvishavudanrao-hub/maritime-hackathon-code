@@ -964,16 +964,48 @@ function attachControls() {
   for (const id of TOGGLES) $(id).addEventListener('change', e => { state.toggles[id] = e.target.checked; schedulePlan(); });
   $('refreshFeeds').addEventListener('click', () => { pullNews(true); pullWeather(true); });
 
-  $('zoomIn').addEventListener('click', () => zoom(.78)); $('zoomOut').addEventListener('click', () => zoom(1.28));
+  $('zoomIn').addEventListener('click', () => zoom(.7)); $('zoomOut').addEventListener('click', () => zoom(1 / .7));
   $('zoomReset').addEventListener('click', () => { state.mapView = {x: 0, y: 0, w: W, h: H}; updateView(); });
-  const svg = $('worldMap'); let drag = null;
-  svg.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.15 : .85); }, {passive: false});
-  svg.addEventListener('pointerdown', e => { if (e.target.closest('.route-line')) return; drag = {x: e.clientX, y: e.clientY, v: {...state.mapView}}; svg.setPointerCapture(e.pointerId); });
-  svg.addEventListener('pointermove', e => { if (!drag) return; const box = svg.getBoundingClientRect(); const factor = Math.max(drag.v.w / box.width, drag.v.h / box.height); state.mapView.x = drag.v.x - (e.clientX - drag.x) * factor; state.mapView.y = drag.v.y - (e.clientY - drag.y) * factor; updateView(); });
-  svg.addEventListener('pointerup', () => { drag = null; }); svg.addEventListener('pointercancel', () => { drag = null; });
+  const svg = $('worldMap'), ptrs = new Map(); let pan = null, pinch = null;
+  const mapPoint = (cx, cy) => { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  // Zoom about the cursor (not the map centre), so scrolling over Asia zooms into Asia.
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const p = mapPoint(e.clientX, e.clientY);
+    zoomTo(state.mapView.w * Math.exp(Math.max(-80, Math.min(80, e.deltaY)) * 0.0022), p.x, p.y);
+  }, {passive: false});
+  svg.addEventListener('dblclick', e => { const p = mapPoint(e.clientX, e.clientY); zoomTo(state.mapView.w * .5, p.x, p.y); });
+  svg.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    if (ptrs.size === 1) pan = {x: e.clientX, y: e.clientY, v: {...state.mapView}, s: svg.getScreenCTM().a, on: false};
+    else if (ptrs.size === 2) { pan = null; const [p, q] = [...ptrs.values()]; pinch = {d: Math.hypot(p.x - q.x, p.y - q.y) || 1, w: state.mapView.w}; }
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    if (pinch && ptrs.size === 2) {
+      const [p, q] = [...ptrs.values()], c = mapPoint((p.x + q.x) / 2, (p.y + q.y) / 2);
+      zoomTo(pinch.w * pinch.d / (Math.hypot(p.x - q.x, p.y - q.y) || 1), c.x, c.y); return;
+    }
+    if (!pan) return;
+    const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+    if (!pan.on) {   // a few pixels of movement before it counts as a drag, so clicks on ships and ports still work
+      if (Math.hypot(dx, dy) < 4) return;
+      pan.on = true; svg.classList.add('panning');
+      try { svg.setPointerCapture(e.pointerId); } catch { /* pointer already gone: keep panning without capture */ }
+    }
+    state.mapView = TLMapView.panView({...pan.v, x: pan.v.x - dx / pan.s, y: pan.v.y - dy / pan.s}, 0, 0, W, H); updateView();
+  });
+  const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { pan = null; svg.classList.remove('panning'); } };
+  svg.addEventListener('pointerup', endPtr); svg.addEventListener('pointercancel', endPtr);
 }
-function zoom(factor) { const v = state.mapView, w = Math.max(220, Math.min(W * 1.35, v.w * factor)), h = Math.max(120, Math.min(H * 1.35, v.h * factor)); v.x += (v.w - w) / 2; v.y += (v.h - h) / 2; v.w = w; v.h = h; updateView(); }
-function updateView() { const v = state.mapView; $('worldMap').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); }
+function zoomTo(w, ax, ay) { state.mapView = TLMapView.zoomView(state.mapView, w, ax, ay, W, H); updateView(); }
+function zoom(factor) { zoomTo(state.mapView.w * factor); }
+function updateView() {
+  const v = state.mapView; $('worldMap').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+  moveVessels(); if (state.ais.on) drawAis();   // ship icons keep their on-screen size at every zoom
+}
 function timeTick() {
   const d = new Date();
   $('utcClock').textContent = d.toLocaleTimeString('en-GB', {timeZone: 'UTC', hour12: false, hour: '2-digit', minute: '2-digit'});
@@ -1181,19 +1213,20 @@ function deadReckon(s) {
 }
 function drawAis() {
   const g = $('aisSvg'); if (!g) return; g.innerHTML = '';
+  const mk = TLMapView.markerScale(state.mapView, W);
   const d = state.ais.data; if (!state.ais.on || !d?.ships) return;
   for (const s of d.ships) {
     const here = deadReckon(s), [x, y] = project(here), tracked = s.tracked, sel = s.mmsi === state.ais.sel;
     const col = sel ? '#0f1f33' : tracked ? '#d97706' : '#2563eb';
     const trail = [...(s.trail || []), here];
-    if (trail.length > 1) g.appendChild(svgEl('path', {d: pathString(trail), fill: 'none', stroke: col, 'stroke-width': tracked || sel ? 1.6 : 0.9, opacity: tracked || sel ? .8 : .45, 'stroke-dasharray': '2 2'}));
+    if (trail.length > 1) g.appendChild(svgEl('path', {d: pathString(trail), fill: 'none', stroke: col, 'stroke-width': tracked || sel ? 2 : 1.2, 'vector-effect': 'non-scaling-stroke', opacity: tracked || sel ? .8 : .45, 'stroke-dasharray': '2 2'}));
     const c = (Number.isFinite(s.heading) ? s.heading : Number.isFinite(s.cog) ? s.cog : 0) * Math.PI / 180;
     const ang = Math.atan2((W / 170) * Math.sin(c) / Math.max(0.2, Math.cos(s.lat * Math.PI / 180)), (H / 122) * Math.cos(c)) * 180 / Math.PI;
     const k = tracked || sel ? 1.5 : 1;
-    const icon = svgEl('path', {d: `M0,${-6 * k} L${3.6 * k},${5 * k} L0,${2.6 * k} L${-3.6 * k},${5 * k} Z`, transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${ang.toFixed(0)})`, fill: col, stroke: '#ffffff', 'stroke-width': .8, class: 'ais-ship'});
+    const icon = svgEl('path', {d: `M0,${-6 * k} L${3.6 * k},${5 * k} L0,${2.6 * k} L${-3.6 * k},${5 * k} Z`, transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${mk.toFixed(3)})`, fill: col, stroke: '#ffffff', 'stroke-width': .8, class: 'ais-ship'});
     addTitle(icon, `${s.name || 'Unknown'} · MMSI ${s.mmsi} · ${Number.isFinite(s.sog) ? s.sog.toFixed(1) + ' kn' : '— kn'} · course ${Number.isFinite(s.cog) ? Math.round(s.cog) + '°' : '—'} · reported ${Math.round((s.age_s || 0) / 60)} min ago (live AIS)`);
     icon.addEventListener('click', ev => { ev.stopPropagation(); state.ais.sel = s.mmsi; renderAisCard(); drawAis(); });
-    if (s.sanctions) g.appendChild(addTitle(svgEl('circle', {cx: x, cy: y, r: 9, fill: 'none', stroke: '#ff6b6b', 'stroke-width': 1.6, 'stroke-dasharray': '3 2'}), `OFAC SDN ${s.sanctions.status}: ${s.sanctions.listed_name}`));
+    if (s.sanctions) g.appendChild(addTitle(svgEl('circle', {cx: x, cy: y, r: 9 * mk, fill: 'none', stroke: '#ff6b6b', 'stroke-width': 1.6, 'stroke-dasharray': '3 2'}), `OFAC SDN ${s.sanctions.status}: ${s.sanctions.listed_name}`));
     g.appendChild(icon);
   }
   renderAisCard();
@@ -1555,6 +1588,8 @@ function livePosition(v) {
   const pos = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   return {pos, frac, i, a, b, arrived: frac >= 1, departed: frac > 0};
 }
+// Route colours follow the Streamlit Tideline map: mint = distance travelled, blue = distance still to go.
+const ROUTE_DONE = '#4de0c8', ROUTE_AHEAD = '#2f80ed', ROUTE_CASING = '#0f3b63';
 let vesselNodes = [];   // SVG nodes built by drawVessels and moved every frame by placeVessel
 function vesselTitle(n, live) {
   const v = n.v, pct = live ? ` · ${(live.frac * 100).toFixed(0)}% of route` : '';
@@ -1571,13 +1606,18 @@ function placeVessel(n) {
     }
   }
   const [x, y] = project(loc);
-  const key = live ? `${Math.round(live.frac * 100)}${live.arrived}` : '';
+  const k = TLMapView.markerScale(state.mapView, W);
+  const key = `${live ? Math.round(live.frac * 100) : ''}${live?.arrived}|${k.toFixed(3)}`;
   if (Math.abs(x - n.x) < 0.25 && Math.abs(y - n.y) < 0.25 && key === n.key) return;   // moved less than a quarter pixel
   n.x = x; n.y = y; n.key = key;
-  n.grp.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
-  if (n.halo) { n.halo.setAttribute('cx', x.toFixed(1)); n.halo.setAttribute('cy', y.toFixed(1)); }
+  n.grp.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${k.toFixed(3)})`);
+  if (n.halo) { n.halo.setAttribute('cx', x.toFixed(1)); n.halo.setAttribute('cy', y.toFixed(1)); n.halo.setAttribute('r', (26 * k).toFixed(1)); }
   if (n.voyage) n.icon.setAttribute('transform', `rotate(${ang.toFixed(1)})`);
-  if (live && n.done) n.done.setAttribute('d', pathString(n.voyage.path.slice(0, live.i).concat([live.pos])));
+  if (live && n.done) {   // travelled part (solid mint) and the part still to go (dashed blue) are separate paths
+    const sailed = pathString(n.voyage.path.slice(0, live.i).concat([live.pos]));
+    n.done.setAttribute('d', sailed); n.casing.setAttribute('d', sailed);
+    n.ahead.setAttribute('d', pathString([live.pos].concat(n.voyage.path.slice(live.i))));
+  }
   const label = n.v.ship.name + (live?.arrived ? ' · arrived' : '');
   if (n.text.textContent !== label) { n.text.textContent = label; n.pill.setAttribute('width', label.length * 6.6 + 18); }
   n.title.textContent = vesselTitle(n, live);
@@ -1591,8 +1631,10 @@ function drawVessels() {
     if (onOps && !v.voyage) continue;
     const col = STATUS_COLOR[v.status], n = {v, voyage: v.voyage, x: NaN, y: NaN, key: ''};
     if (v.voyage?.path) {
-      g.appendChild(svgEl('path', {d: pathString(v.voyage.path), fill: 'none', stroke: col, 'stroke-width': 1.6, 'stroke-dasharray': '4 5', opacity: .7}));
-      n.done = g.appendChild(svgEl('path', {fill: 'none', stroke: col, 'stroke-width': 2.6, opacity: .95, 'stroke-linecap': 'round'}));
+      const line = (stroke, w, extra) => g.appendChild(svgEl('path', {fill: 'none', stroke, 'stroke-width': w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke', ...extra}));
+      n.ahead = line(ROUTE_AHEAD, 2.5, {'stroke-dasharray': '7 6', opacity: .95});   // still to go: dashed blue
+      n.casing = line(ROUTE_CASING, 7.5, {opacity: .9});                              // dark edge so the mint reads on any map colour
+      n.done = line(ROUTE_DONE, 4.5);                                                 // travelled: solid mint
     }
     if (v.status === 'decision') n.halo = g.appendChild(svgEl('circle', {r: 26, fill: '#ef444433'}));
     const grp = n.grp = svgEl('g', {class: 'vessel-label', style: 'cursor:pointer'});
