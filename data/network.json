@@ -1,0 +1,2272 @@
+{
+ "_note": "SAMPLE DATA. Planning network for the hackathon demo: lanes follow the Eurostat SeaRoute MARNET network (see _geometry); they are not charted navigable tracks. Fuel prices, stop fees, waiting times, draft limits, security levels and war-risk rates are illustrative NORMAL-TIMES baselines, not quotes; disruptions are added through events.",
+ "zones": {
+  "malacca": {
+   "label": "Strait of Malacca",
+   "location": [
+    3.6,
+    99.8
+   ],
+   "radiusKm": 100,
+   "security_base": 0.04,
+   "war_risk_rate": 0.0
+  },
+  "hormuz": {
+   "label": "Strait of Hormuz",
+   "location": [
+    26.6,
+    56.45
+   ],
+   "radiusKm": 65,
+   "security_base": 0.06,
+   "war_risk_rate": 0.0005
+  },
+  "bab": {
+   "label": "Bab el-Mandeb / Red Sea",
+   "location": [
+    12.65,
+    43.32
+   ],
+   "radiusKm": 65,
+   "security_base": 0.05,
+   "war_risk_rate": 0.0005
+  },
+  "suez": {
+   "label": "Suez Canal",
+   "location": [
+    30.6,
+    32.45
+   ],
+   "radiusKm": 70,
+   "security_base": 0.03,
+   "war_risk_rate": 0.0
+  },
+  "cape": {
+   "label": "Cape of Good Hope",
+   "location": [
+    -34.7,
+    18.5
+   ],
+   "radiusKm": 70,
+   "security_base": 0.02,
+   "war_risk_rate": 0.0
+  },
+  "gulf_guinea": {
+   "label": "Gulf of Guinea",
+   "location": [
+    2.0,
+    -2.0
+   ],
+   "radiusKm": 400,
+   "security_base": 0.08,
+   "war_risk_rate": 0.0005
+  }
+ },
+ "canals": {
+  "suez": {
+   "label": "Suez Canal",
+   "max_draft_m": 20.1,
+   "wait_h": 16
+  }
+ },
+ "ports": {
+  "SHA": {
+   "name": "Shanghai",
+   "loc": [
+    31.23,
+    121.5
+   ],
+   "fuel_price": 610,
+   "stop_fee": 30000,
+   "wait_h": 18,
+   "max_draft_m": 16.0,
+   "region": "east_asia"
+  },
+  "SIN": {
+   "name": "Singapore",
+   "loc": [
+    1.26,
+    103.85
+   ],
+   "fuel_price": 585,
+   "stop_fee": 22000,
+   "wait_h": 10,
+   "max_draft_m": 20.0,
+   "region": "southeast_asia"
+  },
+  "JEA": {
+   "name": "Jebel Ali",
+   "loc": [
+    24.98,
+    55.06
+   ],
+   "fuel_price": 615,
+   "stop_fee": 25000,
+   "wait_h": 12,
+   "max_draft_m": 17.0,
+   "region": "persian_gulf"
+  },
+  "FUJ": {
+   "name": "Fujairah",
+   "loc": [
+    25.12,
+    56.36
+   ],
+   "fuel_price": 600,
+   "stop_fee": 18000,
+   "wait_h": 8,
+   "max_draft_m": 20.0,
+   "region": "gulf_of_oman"
+  },
+  "CMB": {
+   "name": "Colombo",
+   "loc": [
+    6.93,
+    79.85
+   ],
+   "fuel_price": 640,
+   "stop_fee": 20000,
+   "wait_h": 12,
+   "max_draft_m": 18.0,
+   "region": "south_asia"
+  },
+  "PLU": {
+   "name": "Port Louis",
+   "loc": [
+    -20.16,
+    57.5
+   ],
+   "fuel_price": 690,
+   "stop_fee": 18000,
+   "wait_h": 10,
+   "max_draft_m": 15.0,
+   "region": "indian_ocean"
+  },
+  "DUR": {
+   "name": "Durban",
+   "loc": [
+    -29.87,
+    31.05
+   ],
+   "fuel_price": 650,
+   "stop_fee": 24000,
+   "wait_h": 20,
+   "max_draft_m": 16.0,
+   "region": "southern_africa"
+  },
+  "CPT": {
+   "name": "Cape Town",
+   "loc": [
+    -33.9,
+    18.3
+   ],
+   "fuel_price": 665,
+   "stop_fee": 25000,
+   "wait_h": 14,
+   "max_draft_m": 15.5,
+   "region": "southern_africa"
+  },
+  "WVB": {
+   "name": "Walvis Bay",
+   "loc": [
+    -22.95,
+    14.3
+   ],
+   "fuel_price": 700,
+   "stop_fee": 18000,
+   "wait_h": 10,
+   "max_draft_m": 14.0,
+   "region": "west_africa"
+  },
+  "ABJ": {
+   "name": "Abidjan",
+   "loc": [
+    5.2,
+    -4.0
+   ],
+   "fuel_price": 675,
+   "stop_fee": 20000,
+   "wait_h": 16,
+   "max_draft_m": 15.5,
+   "region": "west_africa"
+  },
+  "DKR": {
+   "name": "Dakar",
+   "loc": [
+    14.6,
+    -17.6
+   ],
+   "fuel_price": 660,
+   "stop_fee": 18000,
+   "wait_h": 10,
+   "max_draft_m": 13.0,
+   "region": "west_africa"
+  },
+  "LPA": {
+   "name": "Las Palmas",
+   "loc": [
+    28.13,
+    -15.42
+   ],
+   "fuel_price": 625,
+   "stop_fee": 16000,
+   "wait_h": 8,
+   "max_draft_m": 16.0,
+   "region": "canary_islands"
+  },
+  "PSD": {
+   "name": "Port Said",
+   "loc": [
+    31.27,
+    32.31
+   ],
+   "fuel_price": 630,
+   "stop_fee": 22000,
+   "wait_h": 10,
+   "max_draft_m": 20.0,
+   "region": "egypt"
+  },
+  "GIB": {
+   "name": "Gibraltar",
+   "loc": [
+    36.1,
+    -5.4
+   ],
+   "fuel_price": 615,
+   "stop_fee": 15000,
+   "wait_h": 6,
+   "max_draft_m": 20.0,
+   "region": "europe"
+  },
+  "RTM": {
+   "name": "Rotterdam",
+   "loc": [
+    51.95,
+    4.14
+   ],
+   "fuel_price": 575,
+   "stop_fee": 30000,
+   "wait_h": 18,
+   "max_draft_m": 22.0,
+   "region": "europe"
+  },
+  "MUM": {
+   "name": "Mumbai (Nhava Sheva)",
+   "loc": [
+    18.95,
+    72.95
+   ],
+   "fuel_price": 650,
+   "stop_fee": 20000,
+   "wait_h": 24,
+   "max_draft_m": 14.0,
+   "region": "south_asia"
+  },
+  "PUS": {
+   "name": "Busan",
+   "loc": [
+    35.08,
+    129.08
+   ],
+   "fuel_price": 600,
+   "stop_fee": 22000,
+   "wait_h": 8,
+   "max_draft_m": 17.0,
+   "region": "east_asia"
+  },
+  "HAM": {
+   "name": "Hamburg",
+   "loc": [
+    53.54,
+    9.93
+   ],
+   "fuel_price": 590,
+   "stop_fee": 32000,
+   "wait_h": 20,
+   "max_draft_m": 15.1,
+   "region": "europe"
+  },
+  "PIR": {
+   "name": "Piraeus",
+   "loc": [
+    37.94,
+    23.62
+   ],
+   "fuel_price": 615,
+   "stop_fee": 20000,
+   "wait_h": 8,
+   "max_draft_m": 18.0,
+   "region": "mediterranean"
+  },
+  "MBA": {
+   "name": "Mombasa",
+   "loc": [
+    -4.06,
+    39.67
+   ],
+   "fuel_price": 700,
+   "stop_fee": 18000,
+   "wait_h": 30,
+   "max_draft_m": 13.5,
+   "region": "east_africa"
+  },
+  "LOS": {
+   "name": "Lagos (Lekki)",
+   "loc": [
+    6.43,
+    4.03
+   ],
+   "fuel_price": 720,
+   "stop_fee": 25000,
+   "wait_h": 48,
+   "max_draft_m": 16.5,
+   "region": "west_africa"
+  },
+  "UKB": {
+   "name": "Kobe",
+   "loc": [
+    34.66,
+    135.2
+   ],
+   "fuel_price": 630,
+   "stop_fee": 26000,
+   "wait_h": 10,
+   "max_draft_m": 16.0,
+   "region": "east_asia"
+  }
+ },
+ "waypoints": {
+  "hormuz": {
+   "name": "Strait of Hormuz",
+   "loc": [
+    26.441,
+    56.343
+   ]
+  },
+  "gulf_of_oman": {
+   "name": "Gulf of Oman",
+   "loc": [
+    24,
+    59
+   ]
+  },
+  "aden_gulf": {
+   "name": "Gulf of Aden approach",
+   "loc": [
+    13.3,
+    53.619
+   ]
+  },
+  "bab": {
+   "name": "Bab el-Mandeb",
+   "loc": [
+    12.7,
+    43.3
+   ]
+  },
+  "suez_south": {
+   "name": "Suez (south entrance)",
+   "loc": [
+    29.7,
+    32.6
+   ]
+  },
+  "indian_west": {
+   "name": "Western Indian Ocean",
+   "loc": [
+    -7.517,
+    62.533
+   ]
+  },
+  "madagascar_s": {
+   "name": "South of Madagascar",
+   "loc": [
+    -26.4,
+    48.1
+   ]
+  },
+  "agulhas": {
+   "name": "Cape Agulhas",
+   "loc": [
+    -35,
+    22
+   ]
+  },
+  "sa_east": {
+   "name": "South Atlantic (east)",
+   "loc": [
+    -25.084,
+    4.795
+   ]
+  },
+  "gulf_guinea": {
+   "name": "Gulf of Guinea",
+   "loc": [
+    -0.0,
+    0
+   ]
+  },
+  "cape_verde": {
+   "name": "Off Cape Verde",
+   "loc": [
+    15,
+    -21.295
+   ]
+  },
+  "finisterre": {
+   "name": "Off Cape Finisterre",
+   "loc": [
+    43.496,
+    -10.195
+   ]
+  }
+ },
+ "edges": [
+  {
+   "from": "SHA",
+   "to": "SIN",
+   "zones": [],
+   "points": [
+    [
+     31.23,
+     121.5
+    ],
+    [
+     31.51,
+     121.419
+    ],
+    [
+     31.259,
+     121.84
+    ],
+    [
+     31.062,
+     121.944
+    ],
+    [
+     30.902,
+     122.891
+    ],
+    [
+     30.182,
+     122.875
+    ],
+    [
+     28.58,
+     122.239
+    ],
+    [
+     27.8,
+     121.3
+    ],
+    [
+     25.7,
+     120
+    ],
+    [
+     24.708,
+     119.524
+    ],
+    [
+     15.728,
+     112.965
+    ],
+    [
+     11.608,
+     111.053
+    ],
+    [
+     8.319,
+     108.702
+    ],
+    [
+     1.341,
+     104.482
+    ],
+    [
+     1.171,
+     103.861
+    ],
+    [
+     1.26,
+     103.763
+    ],
+    [
+     1.26,
+     103.85
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "SIN",
+   "to": "CMB",
+   "zones": [
+    "malacca"
+   ],
+   "points": [
+    [
+     1.26,
+     103.85
+    ],
+    [
+     1.198,
+     103.658
+    ],
+    [
+     1.1,
+     103.6
+    ],
+    [
+     2,
+     102
+    ],
+    [
+     3.2,
+     100.6
+    ],
+    [
+     5.812,
+     98.128
+    ],
+    [
+     6.466,
+     90
+    ],
+    [
+     5.8,
+     80.1
+    ],
+    [
+     6.425,
+     79.827
+    ],
+    [
+     6.995,
+     79.79
+    ],
+    [
+     6.93,
+     79.85
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "SIN",
+   "to": "indian_west",
+   "zones": [
+    "malacca"
+   ],
+   "points": [
+    [
+     1.26,
+     103.85
+    ],
+    [
+     1.198,
+     103.658
+    ],
+    [
+     1.1,
+     103.6
+    ],
+    [
+     2,
+     102
+    ],
+    [
+     3.2,
+     100.6
+    ],
+    [
+     5.812,
+     98.128
+    ],
+    [
+     6.466,
+     90
+    ],
+    [
+     5.8,
+     80.1
+    ],
+    [
+     4.144,
+     73.561
+    ],
+    [
+     -0.0,
+     70
+    ],
+    [
+     -7.517,
+     62.533
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "CMB",
+   "to": "aden_gulf",
+   "zones": [],
+   "points": [
+    [
+     6.93,
+     79.85
+    ],
+    [
+     6.995,
+     79.79
+    ],
+    [
+     6.388,
+     78.019
+    ],
+    [
+     8.761,
+     69.329
+    ],
+    [
+     11.084,
+     59.894
+    ],
+    [
+     13.3,
+     53.619
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "CMB",
+   "to": "indian_west",
+   "zones": [],
+   "points": [
+    [
+     6.93,
+     79.85
+    ],
+    [
+     6.995,
+     79.79
+    ],
+    [
+     6.388,
+     78.019
+    ],
+    [
+     4.846,
+     73.846
+    ],
+    [
+     4.144,
+     73.561
+    ],
+    [
+     -0.0,
+     70
+    ],
+    [
+     -7.517,
+     62.533
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "JEA",
+   "to": "hormuz",
+   "zones": [
+    "hormuz"
+   ],
+   "points": [
+    [
+     24.98,
+     55.06
+    ],
+    [
+     25.322,
+     54.991
+    ],
+    [
+     25.6,
+     55.2
+    ],
+    [
+     26.441,
+     56.343
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "hormuz",
+   "to": "gulf_of_oman",
+   "zones": [
+    "hormuz"
+   ],
+   "points": [
+    [
+     26.441,
+     56.343
+    ],
+    [
+     26.511,
+     56.547
+    ],
+    [
+     26.422,
+     56.763
+    ],
+    [
+     25.5,
+     57.1
+    ],
+    [
+     24,
+     59
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "FUJ",
+   "to": "gulf_of_oman",
+   "zones": [],
+   "points": [
+    [
+     25.12,
+     56.36
+    ],
+    [
+     25.5,
+     57.1
+    ],
+    [
+     24,
+     59
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "gulf_of_oman",
+   "to": "aden_gulf",
+   "zones": [],
+   "points": [
+    [
+     24,
+     59
+    ],
+    [
+     22.7,
+     60.4
+    ],
+    [
+     20,
+     59
+    ],
+    [
+     18.742,
+     58.192
+    ],
+    [
+     17.384,
+     56.876
+    ],
+    [
+     13.3,
+     53.619
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "gulf_of_oman",
+   "to": "indian_west",
+   "zones": [],
+   "points": [
+    [
+     24,
+     59
+    ],
+    [
+     22.7,
+     60.4
+    ],
+    [
+     20.084,
+     64.501
+    ],
+    [
+     19.426,
+     64.953
+    ],
+    [
+     15.033,
+     64.597
+    ],
+    [
+     -5.057,
+     65.0
+    ],
+    [
+     -7.517,
+     62.533
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "aden_gulf",
+   "to": "bab",
+   "zones": [
+    "bab"
+   ],
+   "points": [
+    [
+     13.3,
+     53.619
+    ],
+    [
+     12,
+     45
+    ],
+    [
+     12.404,
+     43.747
+    ],
+    [
+     12.7,
+     43.3
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "bab",
+   "to": "suez_south",
+   "zones": [
+    "bab"
+   ],
+   "points": [
+    [
+     12.7,
+     43.3
+    ],
+    [
+     13.676,
+     42.541
+    ],
+    [
+     14.509,
+     42.341
+    ],
+    [
+     17.099,
+     41.001
+    ],
+    [
+     20.808,
+     38.573
+    ],
+    [
+     23.6,
+     37
+    ],
+    [
+     27,
+     34.5
+    ],
+    [
+     28.445,
+     33.234
+    ],
+    [
+     29.7,
+     32.6
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "suez_south",
+   "to": "PSD",
+   "zones": [
+    "suez"
+   ],
+   "canal": "suez",
+   "points": [
+    [
+     29.7,
+     32.6
+    ],
+    [
+     30.214,
+     32.558
+    ],
+    [
+     30.318,
+     32.382
+    ],
+    [
+     31.336,
+     32.36
+    ],
+    [
+     31.27,
+     32.31
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "PSD",
+   "to": "GIB",
+   "zones": [],
+   "points": [
+    [
+     31.27,
+     32.31
+    ],
+    [
+     31.336,
+     32.36
+    ],
+    [
+     31.7,
+     32.1
+    ],
+    [
+     33.22,
+     27.927
+    ],
+    [
+     34.8,
+     23
+    ],
+    [
+     36.4,
+     15.2
+    ],
+    [
+     37.5,
+     11
+    ],
+    [
+     37.2,
+     3.1
+    ],
+    [
+     36,
+     -4.7
+    ],
+    [
+     35.973,
+     -5.269
+    ],
+    [
+     36.1,
+     -5.4
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "GIB",
+   "to": "finisterre",
+   "zones": [],
+   "points": [
+    [
+     36.1,
+     -5.4
+    ],
+    [
+     35.973,
+     -5.269
+    ],
+    [
+     35.95,
+     -5.75
+    ],
+    [
+     36.8,
+     -9.25
+    ],
+    [
+     40.78,
+     -9.984
+    ],
+    [
+     43.496,
+     -10.195
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "finisterre",
+   "to": "RTM",
+   "zones": [],
+   "points": [
+    [
+     43.496,
+     -10.195
+    ],
+    [
+     43.402,
+     -10.064
+    ],
+    [
+     45.914,
+     -7.987
+    ],
+    [
+     48.667,
+     -5.5
+    ],
+    [
+     51.5,
+     3.4
+    ],
+    [
+     52,
+     3.9
+    ],
+    [
+     51.95,
+     4.14
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "indian_west",
+   "to": "PLU",
+   "zones": [],
+   "points": [
+    [
+     -7.517,
+     62.533
+    ],
+    [
+     -10,
+     60
+    ],
+    [
+     -19.635,
+     58.207
+    ],
+    [
+     -20.019,
+     57.454
+    ],
+    [
+     -20.16,
+     57.5
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "indian_west",
+   "to": "madagascar_s",
+   "zones": [],
+   "points": [
+    [
+     -7.517,
+     62.533
+    ],
+    [
+     -10,
+     60
+    ],
+    [
+     -18.226,
+     49.95
+    ],
+    [
+     -26.4,
+     48.1
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "PLU",
+   "to": "madagascar_s",
+   "zones": [],
+   "points": [
+    [
+     -20.16,
+     57.5
+    ],
+    [
+     -20.019,
+     57.454
+    ],
+    [
+     -20.924,
+     55.286
+    ],
+    [
+     -26.4,
+     48.1
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "madagascar_s",
+   "to": "DUR",
+   "zones": [],
+   "points": [
+    [
+     -26.4,
+     48.1
+    ],
+    [
+     -28.259,
+     44.118
+    ],
+    [
+     -30,
+     40
+    ],
+    [
+     -30.06,
+     36.0
+    ],
+    [
+     -30,
+     32
+    ],
+    [
+     -29.817,
+     31.174
+    ],
+    [
+     -29.87,
+     31.05
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "madagascar_s",
+   "to": "agulhas",
+   "zones": [
+    "cape"
+   ],
+   "points": [
+    [
+     -26.4,
+     48.1
+    ],
+    [
+     -28.259,
+     44.118
+    ],
+    [
+     -30,
+     40
+    ],
+    [
+     -31.879,
+     34.358
+    ],
+    [
+     -33.5,
+     28.5
+    ],
+    [
+     -34.5,
+     26
+    ],
+    [
+     -35,
+     22
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "DUR",
+   "to": "agulhas",
+   "zones": [
+    "cape"
+   ],
+   "points": [
+    [
+     -29.87,
+     31.05
+    ],
+    [
+     -29.817,
+     31.174
+    ],
+    [
+     -33.5,
+     28.5
+    ],
+    [
+     -34.5,
+     26
+    ],
+    [
+     -35,
+     22
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "agulhas",
+   "to": "CPT",
+   "zones": [
+    "cape"
+   ],
+   "points": [
+    [
+     -35,
+     22
+    ],
+    [
+     -35,
+     18
+    ],
+    [
+     -33.841,
+     18.237
+    ],
+    [
+     -33.9,
+     18.3
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "agulhas",
+   "to": "sa_east",
+   "zones": [
+    "cape"
+   ],
+   "points": [
+    [
+     -35,
+     22
+    ],
+    [
+     -35,
+     18
+    ],
+    [
+     -32.534,
+     13.909
+    ],
+    [
+     -30,
+     10
+    ],
+    [
+     -25.084,
+     4.795
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "CPT",
+   "to": "sa_east",
+   "zones": [],
+   "points": [
+    [
+     -33.9,
+     18.3
+    ],
+    [
+     -33.841,
+     18.237
+    ],
+    [
+     -35,
+     18
+    ],
+    [
+     -32.534,
+     13.909
+    ],
+    [
+     -30,
+     10
+    ],
+    [
+     -25.084,
+     4.795
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "CPT",
+   "to": "WVB",
+   "zones": [],
+   "points": [
+    [
+     -33.9,
+     18.3
+    ],
+    [
+     -26.863,
+     14.535
+    ],
+    [
+     -22.909,
+     13.809
+    ],
+    [
+     -22.834,
+     14.476
+    ],
+    [
+     -22.95,
+     14.3
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "WVB",
+   "to": "gulf_guinea",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     -22.95,
+     14.3
+    ],
+    [
+     -22.834,
+     14.476
+    ],
+    [
+     -22.909,
+     13.809
+    ],
+    [
+     -19,
+     11
+    ],
+    [
+     -14.374,
+     6.365
+    ],
+    [
+     -3.091,
+     0.0
+    ],
+    [
+     -0.0,
+     0
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "sa_east",
+   "to": "gulf_guinea",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     -25.084,
+     4.795
+    ],
+    [
+     -20,
+     0
+    ],
+    [
+     -0.0,
+     0
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "gulf_guinea",
+   "to": "ABJ",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     -0.0,
+     0
+    ],
+    [
+     1.108,
+     -2.369
+    ],
+    [
+     4,
+     -4
+    ],
+    [
+     5.2,
+     -4.0
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "gulf_guinea",
+   "to": "cape_verde",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     -0.0,
+     0
+    ],
+    [
+     3.5,
+     -7.5
+    ],
+    [
+     5.5,
+     -11.5
+    ],
+    [
+     11,
+     -17
+    ],
+    [
+     14.173,
+     -21.749
+    ],
+    [
+     15,
+     -21.295
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "ABJ",
+   "to": "cape_verde",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     5.2,
+     -4.0
+    ],
+    [
+     4.867,
+     -4.032
+    ],
+    [
+     4.538,
+     -6.471
+    ],
+    [
+     3.5,
+     -7.5
+    ],
+    [
+     5.5,
+     -11.5
+    ],
+    [
+     11,
+     -17
+    ],
+    [
+     14.173,
+     -21.749
+    ],
+    [
+     15,
+     -21.295
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "sa_east",
+   "to": "cape_verde",
+   "zones": [],
+   "points": [
+    [
+     -25.084,
+     4.795
+    ],
+    [
+     -20,
+     0
+    ],
+    [
+     -12.502,
+     0.0
+    ],
+    [
+     -0.0,
+     -10
+    ],
+    [
+     5.53,
+     -13.428
+    ],
+    [
+     11,
+     -17
+    ],
+    [
+     14.173,
+     -21.749
+    ],
+    [
+     15,
+     -21.295
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "cape_verde",
+   "to": "DKR",
+   "zones": [],
+   "points": [
+    [
+     15,
+     -21.295
+    ],
+    [
+     15,
+     -18
+    ],
+    [
+     14.552,
+     -17.545
+    ],
+    [
+     14.6,
+     -17.6
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "cape_verde",
+   "to": "LPA",
+   "zones": [],
+   "points": [
+    [
+     15,
+     -21.295
+    ],
+    [
+     21,
+     -18
+    ],
+    [
+     27.999,
+     -15.128
+    ],
+    [
+     28.13,
+     -15.42
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "cape_verde",
+   "to": "finisterre",
+   "zones": [],
+   "points": [
+    [
+     15,
+     -21.295
+    ],
+    [
+     21,
+     -18
+    ],
+    [
+     27.999,
+     -15.128
+    ],
+    [
+     29.337,
+     -15.172
+    ],
+    [
+     32.409,
+     -13.905
+    ],
+    [
+     43.147,
+     -10.168
+    ],
+    [
+     43.496,
+     -10.195
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "LPA",
+   "to": "finisterre",
+   "zones": [],
+   "points": [
+    [
+     28.13,
+     -15.42
+    ],
+    [
+     27.999,
+     -15.128
+    ],
+    [
+     29.337,
+     -15.172
+    ],
+    [
+     32.409,
+     -13.905
+    ],
+    [
+     43.147,
+     -10.168
+    ],
+    [
+     43.496,
+     -10.195
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "LPA",
+   "to": "GIB",
+   "zones": [],
+   "points": [
+    [
+     28.13,
+     -15.42
+    ],
+    [
+     27.999,
+     -15.128
+    ],
+    [
+     29.337,
+     -15.172
+    ],
+    [
+     32.531,
+     -11.126
+    ],
+    [
+     35.95,
+     -5.75
+    ],
+    [
+     35.973,
+     -5.269
+    ],
+    [
+     36.1,
+     -5.4
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "MUM",
+   "to": "CMB",
+   "zones": [],
+   "points": [
+    [
+     18.95,
+     72.95
+    ],
+    [
+     19,
+     72.4
+    ],
+    [
+     15.3,
+     73
+    ],
+    [
+     12.773,
+     74.133
+    ],
+    [
+     9.7,
+     75.3
+    ],
+    [
+     8,
+     77
+    ],
+    [
+     6.93,
+     79.85
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "MUM",
+   "to": "gulf_of_oman",
+   "zones": [],
+   "points": [
+    [
+     18.95,
+     72.95
+    ],
+    [
+     19,
+     72.4
+    ],
+    [
+     20,
+     70
+    ],
+    [
+     20.809,
+     69.593
+    ],
+    [
+     22.3,
+     67
+    ],
+    [
+     24,
+     59
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "MUM",
+   "to": "aden_gulf",
+   "zones": [],
+   "points": [
+    [
+     18.95,
+     72.95
+    ],
+    [
+     19,
+     72.4
+    ],
+    [
+     17.527,
+     66.258
+    ],
+    [
+     16.266,
+     61.54
+    ],
+    [
+     15.645,
+     59.445
+    ],
+    [
+     13.3,
+     53.619
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "PUS",
+   "to": "SHA",
+   "zones": [],
+   "points": [
+    [
+     35.08,
+     129.08
+    ],
+    [
+     35,
+     129.2
+    ],
+    [
+     34.762,
+     128.916
+    ],
+    [
+     33.454,
+     126.035
+    ],
+    [
+     31.3,
+     122.9
+    ],
+    [
+     31.259,
+     121.84
+    ],
+    [
+     31.51,
+     121.419
+    ],
+    [
+     31.23,
+     121.5
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "PUS",
+   "to": "UKB",
+   "zones": [],
+   "points": [
+    [
+     35.08,
+     129.08
+    ],
+    [
+     34.3,
+     130.1
+    ],
+    [
+     33.991,
+     130.691
+    ],
+    [
+     33.902,
+     130.915
+    ],
+    [
+     33.988,
+     131.034
+    ],
+    [
+     33.795,
+     131.213
+    ],
+    [
+     33.681,
+     132.149
+    ],
+    [
+     33.955,
+     132.729
+    ],
+    [
+     34.17,
+     132.945
+    ],
+    [
+     34.072,
+     133.048
+    ],
+    [
+     34.418,
+     134.006
+    ],
+    [
+     34.389,
+     134.393
+    ],
+    [
+     34.625,
+     134.981
+    ],
+    [
+     34.577,
+     135.264
+    ],
+    [
+     34.66,
+     135.2
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "UKB",
+   "to": "SHA",
+   "zones": [],
+   "points": [
+    [
+     34.66,
+     135.2
+    ],
+    [
+     34.577,
+     135.264
+    ],
+    [
+     34.625,
+     134.981
+    ],
+    [
+     34.389,
+     134.393
+    ],
+    [
+     34.418,
+     134.006
+    ],
+    [
+     34.072,
+     133.048
+    ],
+    [
+     34.17,
+     132.945
+    ],
+    [
+     33.955,
+     132.729
+    ],
+    [
+     33.681,
+     132.149
+    ],
+    [
+     33.795,
+     131.213
+    ],
+    [
+     33.988,
+     131.034
+    ],
+    [
+     33.902,
+     130.915
+    ],
+    [
+     33.991,
+     130.691
+    ],
+    [
+     33.901,
+     130.264
+    ],
+    [
+     33.5,
+     129.328
+    ],
+    [
+     31.3,
+     122.9
+    ],
+    [
+     31.259,
+     121.84
+    ],
+    [
+     31.51,
+     121.419
+    ],
+    [
+     31.23,
+     121.5
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "HAM",
+   "to": "RTM",
+   "zones": [],
+   "points": [
+    [
+     53.54,
+     9.93
+    ],
+    [
+     53.584,
+     9.633
+    ],
+    [
+     53.877,
+     9.227
+    ],
+    [
+     53.91,
+     8.745
+    ],
+    [
+     53.5,
+     4.9
+    ],
+    [
+     52,
+     3.9
+    ],
+    [
+     51.95,
+     4.14
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "PIR",
+   "to": "PSD",
+   "zones": [],
+   "points": [
+    [
+     37.94,
+     23.62
+    ],
+    [
+     37.819,
+     23.642
+    ],
+    [
+     37.279,
+     24.237
+    ],
+    [
+     37.277,
+     24.458
+    ],
+    [
+     36.942,
+     24.918
+    ],
+    [
+     36.798,
+     25.507
+    ],
+    [
+     36.102,
+     26.919
+    ],
+    [
+     35.88,
+     27.548
+    ],
+    [
+     31.7,
+     32.1
+    ],
+    [
+     31.336,
+     32.36
+    ],
+    [
+     31.27,
+     32.31
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "PIR",
+   "to": "GIB",
+   "zones": [],
+   "points": [
+    [
+     37.94,
+     23.62
+    ],
+    [
+     37.837,
+     23.505
+    ],
+    [
+     37.909,
+     23.02
+    ],
+    [
+     38.349,
+     21.904
+    ],
+    [
+     37.977,
+     20.68
+    ],
+    [
+     37.893,
+     15.698
+    ],
+    [
+     38.032,
+     15.557
+    ],
+    [
+     38.366,
+     15.728
+    ],
+    [
+     38.291,
+     13.396
+    ],
+    [
+     37.98,
+     9.144
+    ],
+    [
+     37.2,
+     3.1
+    ],
+    [
+     36,
+     -4.7
+    ],
+    [
+     35.973,
+     -5.269
+    ],
+    [
+     36.1,
+     -5.4
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "MBA",
+   "to": "indian_west",
+   "zones": [],
+   "points": [
+    [
+     -4.06,
+     39.67
+    ],
+    [
+     -4.2,
+     40.3
+    ],
+    [
+     -6.5,
+     40
+    ],
+    [
+     -10,
+     50
+    ],
+    [
+     -10,
+     60
+    ],
+    [
+     -7.517,
+     62.533
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "MBA",
+   "to": "aden_gulf",
+   "zones": [],
+   "points": [
+    [
+     -4.06,
+     39.67
+    ],
+    [
+     -4.2,
+     40.3
+    ],
+    [
+     -1,
+     43
+    ],
+    [
+     5,
+     49.4
+    ],
+    [
+     11.6,
+     52.3
+    ],
+    [
+     13.3,
+     53.619
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "LOS",
+   "to": "gulf_guinea",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     6.43,
+     4.03
+    ],
+    [
+     6.381,
+     3.406
+    ],
+    [
+     5,
+     2.5
+    ],
+    [
+     4,
+     -1
+    ],
+    [
+     -0.0,
+     0
+    ]
+   ],
+   "geometry": "marnet"
+  },
+  {
+   "from": "LOS",
+   "to": "ABJ",
+   "zones": [
+    "gulf_guinea"
+   ],
+   "points": [
+    [
+     6.43,
+     4.03
+    ],
+    [
+     6.381,
+     3.406
+    ],
+    [
+     6.075,
+     2.516
+    ],
+    [
+     5.837,
+     1.422
+    ],
+    [
+     4.439,
+     -2.093
+    ],
+    [
+     4.867,
+     -4.032
+    ],
+    [
+     5.2,
+     -4.0
+    ]
+   ],
+   "geometry": "marnet"
+  }
+ ],
+ "_geometry": "Edge geometry follows the Eurostat SeaRoute MARNET maritime network (via searoute-py, Apache-2.0), snapped to Tideline ports and waypoints; edges marked REVIEW keep hand-drawn geometry."
+}

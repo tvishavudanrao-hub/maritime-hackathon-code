@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#f3f6fa"/>
+  <title>Tideline — Fleet Operations</title>
+  <meta name="description" content="Tideline: AI voyage and fleet decisions — routes, fuel, risk, insurance and compliance, monitored live."/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    :root{--bg:#f3f6fa;--card:#ffffff;--line:#e3e9f0;--line2:#edf1f6;--ink:#0f1f33;--ink2:#334155;--muted:#64748b;--muted2:#94a3b8;
+      --navy:#0f3b63;--navy2:#174a7a;--blue:#2563eb;--sky:#e8f1fb;--mint:#0d9488;--mint-bg:#e6f6f3;--gold:#d97706;--gold-bg:#fef3e2;--red:#dc2626;--red-bg:#fdecec;
+      --green:#16a34a;--green-bg:#e7f6ec;--shadow:0 1px 2px #0f1f330a,0 4px 16px #0f1f330d;--r:14px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+    button,select,input,textarea{font:inherit;color:inherit}button{cursor:pointer}
+    button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+    a{color:var(--blue)}[hidden]{display:none!important}
+    /* ---------- shell ---------- */
+    .sidenav{position:fixed;inset:0 auto 0 0;width:228px;background:#fbfcfe;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 14px;z-index:20}
+    .logo{display:flex;align-items:center;gap:10px;padding:6px 10px 22px;font:800 22px 'Inter';letter-spacing:-.02em;color:var(--ink)}
+    .logo svg{width:30px;height:30px}
+    .nav{display:flex;flex-direction:column;gap:4px}.nav-bottom{margin-top:auto}
+    .nav button{display:flex;align-items:center;gap:13px;width:100%;border:0;background:none;padding:11px 14px;border-radius:10px;font-weight:500;font-size:15px;color:var(--ink2);text-align:left}
+    .nav button svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+    .nav button:hover{background:#f0f4f9}.nav button.on{background:var(--sky);color:var(--navy);font-weight:600}
+    .nav .count{margin-left:auto;font-size:11px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:1px 7px}
+    .main{margin-left:228px;min-width:0}
+    .topbar{position:sticky;top:0;z-index:15;height:66px;background:#ffffffeb;backdrop-filter:blur(8px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 28px 0 36px}
+    .search{position:relative;flex:0 1 480px}.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:17px;height:17px;stroke:var(--muted);fill:none;stroke-width:2}
+    .search input{width:100%;height:40px;border:1px solid var(--line);background:#f7f9fc;border-radius:10px;padding:0 14px 0 42px;font-size:14px;outline:none}.search input:focus{background:#fff;border-color:#bcd0e6}
+    .top-right{display:flex;align-items:center;gap:14px}
+    .icon-btn{position:relative;width:40px;height:40px;border:0;background:none;border-radius:10px;display:grid;place-items:center}.icon-btn:hover{background:#f0f4f9}
+    .icon-btn svg{width:21px;height:21px;stroke:var(--ink2);fill:none;stroke-width:1.8}.icon-btn .dot{position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid #fff}
+    .user{display:flex;align-items:center;gap:11px;padding:4px 8px 4px 4px;border-radius:12px}.avatar{width:40px;height:40px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px}
+    .user b{display:block;font-size:14px;font-weight:600}.user small{color:var(--muted);font-size:12px}
+    .demo-btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 14px;font-weight:600;font-size:13px}.demo-btn[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+    .content{padding:28px 28px 40px 36px;max-width:1720px}
+    .page{display:none}body[data-page=overview] .page[data-page=overview],body[data-page=vessels] .page[data-page=vessels],body[data-page=voyages] .page[data-page=voyages],
+    body[data-page=operations] .page[data-page=operations],body[data-page=compliance] .page[data-page=compliance],body[data-page=reports] .page[data-page=reports],body[data-page=settings] .page[data-page=settings]{display:block}
+    .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}
+    .page-head h1{font:800 34px/1.15 'Inter';letter-spacing:-.03em;margin:0}.page-head p{margin:4px 0 0;color:var(--muted);font-size:17px}
+    .when{text-align:right;color:var(--ink2);font-size:14px;line-height:1.45}.when b{font-weight:500}
+    .card,.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+    /* ---------- overview ---------- */
+    .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:18px}
+    .kpi{display:flex;align-items:center;gap:20px;padding:20px 22px;border:1px solid var(--line);background:#fff;border-radius:var(--r);box-shadow:var(--shadow);text-align:left;width:100%}
+    .kpi:hover{border-color:#c9d8ea}.kpi .ic{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}.kpi .ic svg{width:30px;height:30px}
+    .kpi .ic.blue{background:#e5effb;color:#1d6fd8}.kpi .ic.orange{background:#fdeedd;color:#e8730c}.kpi .ic.green{background:#e3f5ea;color:#16a34a}
+    .kpi b{display:block;font:800 28px/1.1 'Inter';letter-spacing:-.02em}.kpi span{display:block;font-weight:600;font-size:16px;margin-top:2px}.kpi small{color:var(--muted);font-size:13px}.kpi .chev{margin-left:auto;color:var(--ink2);font-size:22px}
+    .ov-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+    .decisions-head{display:flex;justify-content:space-between;align-items:center;padding:16px 16px 10px}
+    .decisions-head h2{font:700 18px 'Inter';margin:0;display:flex;align-items:center;gap:8px}.badge{background:var(--red);color:#fff;border-radius:12px;font-size:12px;font-weight:700;padding:2px 9px}
+    .view-all{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 11px;font-size:13px;font-weight:600;color:var(--navy)}
+    .decisions{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px;max-height:640px;overflow:auto}
+    .dcard{border:1px solid var(--line);border-radius:12px;padding:14px 14px 14px 12px;display:grid;grid-template-columns:40px 1fr;gap:10px}
+    .dcard .ic{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;font-size:18px}.dcard.high .ic{background:var(--red-bg);color:var(--red)}.dcard.medium .ic{background:var(--gold-bg);color:var(--gold)}.dcard.low .ic{background:var(--sky);color:var(--blue)}
+    .prio{display:inline-block;font-size:12px;font-weight:600;border-radius:6px;padding:2px 8px}.high .prio{background:var(--red-bg);color:var(--red)}.medium .prio{background:var(--gold-bg);color:#b45309}.low .prio{background:var(--sky);color:var(--navy)}
+    .dcard h3{font:700 16px/1.3 'Inter';margin:8px 0 4px}.dcard p{margin:0;color:var(--ink2);font-size:13.5px;line-height:1.45}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.chip-s{background:#eef4fb;color:var(--navy);border-radius:7px;padding:3px 9px;font-size:12px;font-weight:500}
+    .btn-primary{width:100%;border:0;background:var(--navy);color:#fff;border-radius:9px;padding:11px;font-weight:600}.btn-primary:hover{background:var(--navy2)}
+    .btn-outline{width:100%;border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:9px;padding:10px;font-weight:600}
+    .empty{padding:22px 16px;color:var(--muted);font-size:14px;text-align:center}.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+    /* ---------- map ---------- */
+    .map-card{position:relative}.map-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+    .map-title{font:700 18px 'Inter'}.map-sub{font-size:13px;color:var(--muted)}
+    .map-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .tool-btn{background:#fff;border:1px solid var(--line);color:var(--ink2);border-radius:8px;min-width:34px;height:34px;padding:0 10px;font-size:14px}.tool-btn:hover{background:#f3f7fb}
+    .ais-btn[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+    .legend-inline{display:flex;gap:14px;font-size:13px;color:var(--ink2);align-items:center}.ldot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:-1px}
+    .ldot.ok{background:var(--green)}.ldot.att{background:#f59e0b}.ldot.dec{background:#ef4444}.ldot.idle{background:#94a3b8}
+    .map-select{width:auto;border:1px solid var(--line);border-radius:8px;padding:7px 28px 7px 10px;font-size:13px;background:#fff;appearance:none;background-image:linear-gradient(45deg,transparent 50%,#64748b 50%),linear-gradient(135deg,#64748b 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+    .map-container{position:relative;height:520px;overflow:hidden;background:linear-gradient(180deg,#d4e6f6,#bcd7ef);cursor:grab;user-select:none}.map-container:active{cursor:grabbing}.map-container svg{width:100%;height:100%;display:block;touch-action:none}
+    #landSvg path,#landSvg polygon{fill:#f4f7fb!important;stroke:#c3d2e2!important;stroke-width:.7!important}
+    .map-overlay-label{position:absolute;top:12px;left:14px;background:#ffffffd9;border:1px solid var(--line);border-radius:7px;padding:3px 8px;pointer-events:none;font-size:11px;color:var(--muted)}
+    .map-legend{position:absolute;bottom:12px;left:12px;display:flex;gap:12px;flex-wrap:wrap;border:1px solid var(--line);border-radius:9px;background:#ffffffe6;padding:7px 11px;font-size:12px;color:var(--ink2);pointer-events:none}
+    .legend-line{width:18px;height:3px;background:var(--mint);display:inline-block;vertical-align:middle;margin-right:5px;border-radius:2px}.legend-line.alt{background:#64748b}.legend-line.blocked{background:var(--red)}
+    .legend-dot{width:9px;height:9px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:5px;vertical-align:middle}.legend-haz{color:#c2410c;font-weight:600}
+    .map-foot{padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;flex-wrap:wrap}.map-foot strong{color:var(--ink2)}
+    .pill{border:1px solid var(--line);padding:3px 9px;border-radius:20px;color:var(--ink2);font-size:12px;background:#fff}.start-pill{color:#b45309;border-color:#f3d3a6;cursor:pointer}
+    body:not([data-page=overview]) .ov-only{display:none!important}body[data-page=overview] .plan-only{display:none!important}
+    body:not([data-page=overview]):not([data-page=operations]) #vesselSvg{display:none}
+    .fleet-sim{display:none;align-items:center;gap:6px}body[data-page=overview] .fleet-sim,body[data-page=operations] .fleet-sim{display:inline-flex}
+    .sim-pill{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:4px 10px;color:var(--ink2);background:#fff;white-space:nowrap}.sim-pill.sim-on{background:var(--gold-bg);border-color:#f3d3a6;color:#92400e}
+    #simPlay[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+    body[data-page=overview] #routesSvg,body[data-page=overview] #portsSvg,body[data-page=overview] #weatherSvg,body[data-page=overview] #shipSvg,body[data-page=overview] #fleetSvg{display:none}
+    .map-port-label{font:600 11px 'Inter',sans-serif;fill:#0f1f33;paint-order:stroke;stroke:#fff;stroke-width:3.5}
+    .map-title-label{font:500 10px 'Inter';fill:#5b7896;letter-spacing:.06em}.map-note{font:500 10px 'Inter';fill:#7b93ad}
+    .vessel-label rect{fill:#fff;stroke:#dbe4ee}.vessel-label text{font:600 11.5px 'Inter';fill:#0f1f33}
+    #routesSvg .route-line{fill:none;stroke-linecap:round;stroke-linejoin:round;cursor:pointer}#routesSvg .route-line.selected{stroke:var(--mint);stroke-width:3.4}
+    #routesSvg .route-line.secondary{stroke:#64748b;stroke-width:2.2;stroke-dasharray:6 7;opacity:.8}#routesSvg .route-line.blocked{stroke:#dc2626;stroke-width:2;stroke-dasharray:5 7;opacity:.7}#routesSvg .route-line:hover{stroke-width:5}
+    #routesSvg .route-line.traveled{stroke:#94a3b8;stroke-width:3;opacity:.7}#routesSvg .route-line.committed{stroke:var(--gold);stroke-width:2.4;stroke-dasharray:6 6;opacity:.85}
+    .haz-zone{stroke-width:1.4;stroke-dasharray:5 4}.haz-zone.closed{fill:#ef444433;stroke:#dc2626;animation:pulse 1.4s ease-in-out infinite alternate}.haz-zone.high{fill:#ef444426;stroke:#ef4444}.haz-zone.elevated{fill:#f59e0b22;stroke:#f59e0b}.haz-zone.normal{fill:#64748b12;stroke:#94a3b8;stroke-dasharray:2 5}
+    .haz-label{font:700 10px 'Inter';paint-order:stroke;stroke:#fff;stroke-width:3.5}.haz-label.closed,.haz-label.high{fill:#b91c1c}.haz-label.elevated{fill:#b45309}
+    .choke-zone{fill:#f59e0b22;stroke:#f59e0b;stroke-width:1.4;stroke-dasharray:5 5}@keyframes pulse{to{opacity:.45}}
+    .wave-dot{stroke:#fff;stroke-width:1.6;cursor:help}.ais-ship,.haz-port{cursor:pointer}
+    .ais-bar{position:absolute;top:12px;right:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:62%;background:#ffffffeb;border:1px solid var(--line);border-radius:9px;padding:6px 8px;font-size:12px;color:var(--ink2)}
+    .ais-track{display:flex;gap:4px}.ais-track input{width:110px;padding:4px 7px;border:1px solid var(--line);border-radius:6px;font-size:12px}.ais-track button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 8px;font-size:12px}
+    .ais-card{position:absolute;right:12px;top:58px;width:270px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--ink2);line-height:1.55;z-index:3}
+    .ais-card b{color:var(--ink);font-size:14px}.ais-card .row{display:flex;justify-content:space-between;gap:8px}.ais-card button{margin-top:8px;margin-right:5px;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:7px;padding:5px 9px;font-size:12px}.ais-card .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);margin:0;padding:0;font-size:15px}
+    .ais-flag{color:var(--red);font-weight:700}
+    /* ---------- voyages (planner) ---------- */
+    .metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+    .metric{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px}
+    .metric-label{font-weight:600;color:var(--muted);font-size:12.5px;display:flex;justify-content:space-between}.metric-label .icon{opacity:.6}
+    .metric-value{font:800 26px/1.2 'Inter';letter-spacing:-.02em;margin-top:8px}.metric-value.mint{color:var(--mint)}.metric-value.amber{color:var(--gold)}.metric-sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+    .planner{display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px;align-items:start}.planner-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+    .controls-panel{position:sticky;top:82px;max-height:calc(100vh - 100px);overflow:auto}
+    .pane-top{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}.pane-top h2{font:700 16px 'Inter';margin:0}.small-label{font-size:12.5px;color:var(--muted)}
+    .controls-body{padding:6px 18px 18px}
+    details.ctl{border-bottom:1px solid var(--line2);padding:2px 0 8px}details.ctl:last-child{border-bottom:0}
+    details.ctl>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font:700 14.5px 'Inter';padding:12px 0}
+    details.ctl>summary::-webkit-details-marker,details.sub>summary::-webkit-details-marker{display:none}details.ctl>summary::after{content:'▾';color:var(--muted);transition:transform .15s}details.ctl:not([open])>summary::after{transform:rotate(-90deg)}
+    details.sub{margin-top:10px}details.sub>summary{list-style:none;cursor:pointer;font-size:13px;color:var(--blue);font-weight:500}
+    .field-block{margin-bottom:16px}.field-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12.5px;font-weight:600;color:var(--ink2)}.field-label .val{color:var(--ink);font-weight:600}.field-label .val.small{font-size:12px;color:var(--muted);font-weight:500}
+    .select-wrap{position:relative}select{appearance:none;width:100%;padding:9px 32px 9px 11px;border:1px solid var(--line);background:#fff;border-radius:9px;outline:none;font-size:13.5px}
+    .select-wrap::after{content:'';position:absolute;right:13px;top:50%;width:7px;height:7px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+    .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}.seg button{border:1px solid var(--line);background:#fff;color:var(--ink2);padding:8px;border-radius:8px;font-size:13px;font-weight:500}.seg button.active{border-color:var(--navy);background:var(--navy);color:#fff}.seg button.wide{grid-column:1/-1}
+    .seg.custom button.active{background:#fff;border-color:var(--line);color:var(--ink2)}
+    input[type=range]{width:100%;accent-color:var(--navy);margin:4px 0}.range-ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2)}.toggle-row strong{font-size:13.5px;font-weight:600;display:block}.toggle-row .description{display:block;color:var(--muted);font-size:12px;line-height:1.35;margin-top:1px}
+    .switch{position:relative;width:38px;height:22px;flex-shrink:0}.switch input{opacity:0;width:0;height:0}.track{position:absolute;inset:0;background:#cbd5e1;border-radius:20px;transition:.2s}.track::after{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px #0003}
+    .switch input:checked+.track{background:var(--navy)}.switch input:checked+.track::after{transform:translateX(16px)}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}.two-col.tight{gap:8px}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45}.hint-inline{font-size:12px;color:var(--muted)}
+    .text-input{width:100%;padding:9px 11px;border:1px solid var(--line);background:#fff;border-radius:9px;outline:none;font-size:13.5px}
+    .assumptions{padding:12px;background:#f7f9fc;border:1px dashed #cfdbe8;border-radius:9px;color:var(--ink2);font-size:12.5px}
+    .weights{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fafcfe}.w-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink2);margin-top:6px}
+    .check-row{display:flex;align-items:center;gap:7px;font-size:13px;margin:6px 0}.check-row input{accent-color:var(--navy)}
+    .extra-events{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.extra-event{font-size:12px;border:1px solid #f3d3a6;background:var(--gold-bg);color:#92400e;border-radius:14px;padding:3px 4px 3px 10px;display:inline-flex;align-items:center;gap:5px}.extra-event button{border:0;background:none;color:#92400e;padding:0 4px}
+    .link-btn{margin-top:8px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:12.5px}
+    .routes-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.routes-head h2{font:700 16px 'Inter';margin:0}
+    .routes-body{padding:12px}.route-choice{display:flex;gap:12px;padding:14px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer;margin-bottom:10px;align-items:flex-start}.route-choice:last-child{margin-bottom:0}
+    .route-choice.chosen{border-color:var(--mint);background:#f3fbf9;box-shadow:inset 0 0 0 1px var(--mint)}.route-choice:hover{border-color:#b9cde2}.route-choice.blocked{opacity:.6}
+    .route-number{font:700 12px 'Inter';color:var(--navy);background:var(--sky);border-radius:8px;padding:7px 9px}.route-meta{flex:1;min-width:0}.route-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.route-name{font:700 15px 'Inter'}
+    .recommended{font-size:11px;background:var(--mint-bg);color:#0f766e;border-radius:5px;padding:2px 7px;font-weight:600}.route-secondary{font-size:12.5px;color:var(--muted);margin-top:3px}
+    .route-stats{display:flex;gap:18px;margin-top:10px;font-size:12.5px;flex-wrap:wrap}.route-stats small{color:var(--muted);font-size:11px;display:block}.route-stats b{font-size:15px}
+    .route-status{font-size:12.5px;font-weight:700;color:var(--mint);white-space:nowrap;margin-left:auto}.route-choice.blocked .route-status,.route-choice.original .route-status{color:var(--red)}
+    .route-choice .tag{font-size:11px;border:1px solid var(--line);color:var(--muted);border-radius:5px;padding:1px 6px}.route-choice.original{border-style:dashed;cursor:default}
+    .route-choice.committed-card{border-style:dashed;border-color:#f3d3a6}.route-choice.committed-card .route-status{color:var(--gold)}
+    .alerts{padding:0 12px 12px}.alert-box{border:1px solid #f3d3a6;background:var(--gold-bg);border-radius:10px;padding:11px 13px;color:#7c2d12;font-size:13px;line-height:1.5;margin-top:10px}.alert-box b{display:block;color:#7c2d12;margin-bottom:2px}
+    .alert-box.critical{border-color:#f5c2c2;background:var(--red-bg);color:#7f1d1d}.alert-box.critical b{color:#7f1d1d}.alert-box.good{border-color:#bfe5dc;background:var(--mint-bg);color:#134e4a}.alert-box.good b{color:#134e4a}
+    .plan-body{padding:14px 18px 18px}.sub-h{font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--muted);margin:6px 0 10px}
+    .tabs{display:flex;gap:4px;flex-wrap:wrap}.tabs button{border:0;background:none;color:var(--muted);font-weight:600;font-size:14px;padding:7px 12px;border-radius:8px}.tabs button.on{background:var(--sky);color:var(--navy)}.tab-count{font-size:11px;color:var(--red);margin-left:3px;font-weight:700}
+    .tab-pane{display:none}.plan-body[data-tab=voyage] [data-pane=voyage],.plan-body[data-tab=costs] [data-pane=costs],.plan-body[data-tab=compliance] [data-pane=compliance]{display:block}
+    .plan-panel .routes-head{gap:6px 14px}.plan-panel #planMeta{text-align:right;flex:1 1 260px}
+    #fuelChart{width:100%;height:auto;display:block;margin-bottom:14px;background:#fafcfe;border:1px solid var(--line);border-radius:10px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+    .cp-table{width:100%;border-collapse:collapse;font-size:13px}.cp-table th{font-size:11.5px;font-weight:600;color:var(--muted);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);background:#fafcfe;white-space:nowrap}
+    .cp-table td{padding:8px 12px;border-bottom:1px solid var(--line2);white-space:nowrap}.cp-table tr:last-child td{border-bottom:0}.cp-table .num{text-align:right;font-variant-numeric:tabular-nums}
+    .cp-table tr.port td:first-child{font-weight:600}.cp-table tr.wp td:first-child{color:var(--muted)}.fuel-buy{color:var(--gold);font-weight:700}
+    .wx{font-size:12.5px;color:var(--ink2)}.wx-live{color:#0f766e}.wx-event{color:var(--red);font-weight:600}.wx-seasonal{color:var(--muted)}
+    .cost-list{border:1px solid var(--line);border-radius:10px;padding:6px 14px}.cost-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line2);font-size:13px;color:var(--ink2)}.cost-row:last-child{border-bottom:0}
+    .cost-row b{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}.cost-row.total{font-weight:700;color:var(--ink)}.cost-row.total b{color:var(--mint)}.cost-row.muted{color:var(--muted)}.cost-note{font-size:12px;color:var(--muted);padding:6px 0 2px}
+    .compliance-list{border:1px solid var(--line);border-radius:10px;padding:2px 14px}.cf{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line2);font-size:13px;line-height:1.5;color:var(--ink2)}.cf:last-child{border-bottom:0}.cf b{color:var(--ink)}
+    .cf-tag{font-size:10.5px;border-radius:5px;padding:2px 7px;text-transform:uppercase;letter-spacing:.04em;height:fit-content;white-space:nowrap;font-weight:600}.cf-tag.warn{background:var(--gold-bg);color:#b45309}.cf-tag.cost{background:var(--mint-bg);color:#0f766e}.cf-tag.info{background:var(--sky);color:var(--navy)}
+    .jit-box{border:1px solid #bfe5dc;background:var(--mint-bg);border-radius:11px;padding:12px 14px;margin:0 0 14px}.jit-box.flat{border-color:var(--line);background:#fafcfe}.jit-box h4{margin:0 0 4px;font-size:14px;color:#0f766e}.jit-box p{margin:0 0 8px;font-size:13px;color:var(--ink2)}
+    .jit-grid{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 16px;font-size:13px}.jit-grid .h{color:var(--muted);font-size:11.5px;font-weight:600}.jit-save{color:#0f766e;font-weight:700}
+    .unc-box{margin:0 0 14px}.unc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.unc-grid div{background:#fafcfe;border:1px solid var(--line);border-radius:10px;padding:10px 11px}
+    .unc-grid small{display:block;font-size:11.5px;color:var(--muted);font-weight:600}.unc-grid b{display:block;font:700 14.5px 'Inter';margin:3px 0}.unc-grid span{font-size:12px;color:var(--muted)}.unc-grid b.unc-warn{color:var(--gold)}
+    .fleet-body{padding:14px 16px 16px}.fleet-totals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}.fleet-totals div{background:#fafcfe;border:1px solid var(--line);border-radius:10px;padding:9px 11px}.fleet-totals small{display:block;font-size:11.5px;color:var(--muted)}.fleet-totals b{font:700 16px 'Inter'}
+    .fleet-table tr{cursor:pointer}.fleet-table tr.sel td{background:var(--sky)}.fleet-notes{margin-top:10px;font-size:13px;color:var(--ink2);line-height:1.5}.fleet-notes div{padding:6px 0;border-bottom:1px dashed var(--line)}
+    .fleet-ship{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line2)}.fleet-ship input[type=number]{width:76px;padding:4px 7px;border:1px solid var(--line);border-radius:6px;font-size:12px;margin-left:auto}.fleet-ship .sw{width:10px;height:10px;border-radius:3px;display:inline-block}.fleet-go{width:100%;margin-top:10px}
+    .assign-jobs{display:flex;flex-direction:column;gap:5px}.assign-row{display:grid;grid-template-columns:1fr 1fr 1fr 52px 18px;gap:4px;align-items:center}.assign-row select,.assign-row input{min-width:0;padding:5px 4px;border:1px solid var(--line);border-radius:6px;font-size:11.5px}.assign-row button{border:0;background:none;color:var(--muted)}
+    .assign-ship{display:grid;grid-template-columns:1fr 1fr;gap:6px;align-items:center;font-size:12.5px}.assign-ship select{padding:5px;font-size:12px}.assign-cell{font-size:12px;line-height:1.4}.assign-cell.pick{background:var(--mint-bg)!important;outline:1px solid var(--mint)}.assign-cell .no{color:var(--muted2)}
+    .chat-send{border:0;background:var(--navy);color:#fff;border-radius:9px;padding:10px 14px;font-weight:600;font-size:13px}.chat-send:disabled{opacity:.5;cursor:wait}
+    .spinner{display:inline-block;width:11px;height:11px;border:2px solid #c7d6e6;border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:-1px}@keyframes spin{to{transform:rotate(360deg)}}
+    /* ---------- operations ---------- */
+    .ops-panel .routes-head h2{display:flex;gap:8px;align-items:center}.ops-body{padding:14px 16px 16px}
+    .ops-approve{display:grid;grid-template-columns:1fr 1.4fr 1fr auto;gap:8px;align-items:center;border:1px dashed #cfdbe8;border-radius:11px;padding:12px 14px;margin-bottom:12px;background:#fafcfe}
+    .ops-approve-title{grid-column:1/-1;font-weight:700;font-size:14px}.ops-approve .hint{grid-column:1/-1;margin:0}
+    .ops-approve input,.ops-mini input,.ops-mini select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;min-width:0;background:#fff}
+    .ops-primary{border:0;background:var(--navy);color:#fff;border-radius:9px;padding:9px 14px;font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer}
+    .ops-list{display:flex;flex-direction:column;gap:10px}.ops-empty{font-size:14px;color:var(--muted);padding:6px 2px}
+    .ops-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;cursor:pointer}.ops-card.sel{border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy)}
+    .ops-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink2)}.ops-top b{font-size:15px;color:var(--ink)}
+    .chip{font-size:11px;border-radius:6px;padding:2px 8px;font-weight:600;background:#eef2f7;color:var(--ink2);text-transform:capitalize}.chip.underway,.chip.approved{background:var(--green-bg);color:#15803d}.chip.bad{background:var(--red-bg);color:var(--red)}.chip.warn{background:var(--gold-bg);color:#b45309}
+    .ops-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0}.ops-grid div{font-size:12.5px;color:var(--ink2)}.ops-grid small{display:block;font-size:11px;color:var(--muted);font-weight:600}.ops-grid b{color:var(--ink)}
+    .ops-progress{height:6px;background:#e8eef5;border-radius:4px;overflow:hidden;margin:8px 0}.ops-progress i{display:block;height:100%;background:var(--navy)}
+    .ops-alert{display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border-radius:9px;margin:6px 0;font-size:13px;line-height:1.45;background:var(--gold-bg);border:1px solid #f3d3a6;color:#7c2d12}
+    .ops-alert.action{background:var(--sky);border-color:#c8dcf3;color:var(--navy)}.ops-alert.critical{background:var(--red-bg);border-color:#f5c2c2;color:#7f1d1d}.ops-alert span{flex:1}
+    .ops-alert button,.ops-actions button,.ops-mini button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font-size:12.5px;white-space:nowrap}.ops-alert button.go{background:var(--navy);border-color:var(--navy);color:#fff}
+    .ops-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ops-mini{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}.ops-mini select{flex:0 1 260px}.ops-why{font-size:12.5px;color:var(--muted);margin-top:4px}
+    .ops-foot{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:12.5px;color:var(--muted)}.ops-link{border:0;background:none;color:var(--blue);padding:0;font-size:13px;text-decoration:underline;cursor:pointer}
+    .cal-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px}.cal-file{display:inline-block;font-size:12.5px;padding:7px 11px}
+    /* ---------- modal, drawer ---------- */
+    .modal{position:fixed;inset:0;background:#0f1f3366;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}.modal-card{position:relative;width:min(860px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:14px;padding:20px 22px;box-shadow:0 20px 60px #0f1f3340}
+    .modal-card .x{position:absolute;top:10px;right:12px;border:0;background:none;color:var(--muted);font-size:17px}.modal-card h3{margin:0 0 10px;font:700 17px 'Inter'}
+    .modal-card pre{white-space:pre-wrap;font:12.5px/1.55 ui-monospace,Menlo,monospace;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:12px;margin:0 0 10px}
+    .row-btns{display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap}.row-btns a,.row-btns button{border:0;background:var(--navy);color:#fff;border-radius:8px;padding:7px 12px;font-size:12.5px;text-decoration:none}
+    .audit-row{display:grid;grid-template-columns:150px 130px 1fr;gap:10px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--line2)}.audit-row code{font-size:10.5px;color:var(--muted)}
+    .assist-fab{position:fixed;right:24px;bottom:24px;z-index:40;border:0;background:var(--navy);color:#fff;border-radius:28px;padding:13px 18px;font-weight:600;box-shadow:0 8px 24px #0f3b6355;display:flex;gap:8px;align-items:center}
+    .drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:#fff;border-left:1px solid var(--line);box-shadow:-10px 0 40px #0f1f3320;z-index:50;display:flex;flex-direction:column;transform:translateX(105%);transition:transform .2s}
+    .drawer.open{transform:none}.drawer .chat-panel{border:0;border-radius:0;box-shadow:none;display:flex;flex-direction:column;height:100%}.drawer .chat-log{flex:1;max-height:none}
+    .drawer-close{border:0;background:none;font-size:18px;color:var(--muted)}
+    .live-chip{font-size:11px;padding:3px 8px;border-radius:6px;background:var(--mint-bg);color:#0f766e;font-weight:600}.live-chip.offline{background:var(--gold-bg);color:#b45309}
+    .chat-log{overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+    .chat-msg{font-size:13.5px;line-height:1.5;padding:9px 12px;border-radius:12px;max-width:94%;white-space:pre-wrap;word-wrap:break-word}.chat-msg.bot{background:#f3f6fa;align-self:flex-start}.chat-msg.user{background:var(--navy);color:#fff;align-self:flex-end}
+    .chat-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.chat-chip{font-size:11px;background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:5px;padding:1px 6px}.chat-chip.ok{color:#0f766e;border-color:#bfe5dc}.chat-chip.warn{color:#b45309;border-color:#f3d3a6}
+    .chat-suggest{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}.chat-suggest button{font-size:12px;border:1px solid var(--line);background:#fff;padding:5px 10px;border-radius:14px}.chat-suggest button:hover{border-color:#b9cde2}
+    .chat-form{display:flex;gap:8px;padding:0 14px 14px;align-items:flex-end}.chat-form textarea{flex:1;resize:vertical;min-height:44px;max-height:200px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;outline:none;font-size:13.5px}
+    /* ---------- reports, compliance, vessels, settings ---------- */
+    .two-pane{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+    .sources-list{padding:6px 16px 14px}.src{padding:10px 0;border-bottom:1px solid var(--line2);font-size:13px;line-height:1.5}.src:last-child{border-bottom:0}.src-top{display:flex;justify-content:space-between;gap:8px}.src-top b{font-weight:600}
+    .src-tag{font-size:10.5px;border-radius:5px;padding:2px 7px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;font-weight:600;background:#eef2f7;color:var(--ink2)}
+    .src-tag.official{background:#e6eefc;color:#1d4ed8}.src-tag.live,.src-tag.published{background:var(--mint-bg);color:#0f766e}.src-tag.assessment,.src-tag.derived,.src-tag.indicative{background:#eef2ff;color:#4338ca}.src-tag.estimated,.src-tag.sample,.src-tag.simulated{background:var(--gold-bg);color:#b45309}.src-tag.stale{background:var(--red-bg);color:var(--red)}
+    .src-note{color:var(--muted);font-size:12.5px;margin-top:2px}
+    .signal-block{padding:16px;border-bottom:1px solid var(--line)}.signal-label{display:flex;justify-content:space-between;font-weight:700;color:var(--muted);font-size:12px;margin-bottom:8px}.signal-number{font:800 28px 'Inter'}.signal-caption{color:var(--muted);font-size:12.5px}
+    .weather-row{display:flex;justify-content:space-between;gap:8px;margin-top:10px}.bar-track{height:6px;border-radius:5px;background:#e8eef5;overflow:hidden;margin-top:8px}.bar-fill{background:linear-gradient(90deg,#14b8a6,#f59e0b);height:100%;width:0}
+    .signal-mini{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.mini-box{background:#fafcfe;border:1px solid var(--line);border-radius:9px;padding:10px}.mini-box b{display:block;font-size:18px}.mini-box small{color:var(--muted);font-size:11.5px}
+    .section-feed-head{padding:14px 16px 4px;display:flex;justify-content:space-between;align-items:center}.section-feed-head h3{font:700 15px 'Inter';margin:0}
+    .news-items{padding:0 14px 14px;max-height:520px;overflow:auto}.news-item{display:block;padding:11px 4px;border-bottom:1px solid var(--line2);text-decoration:none;color:inherit}.news-item strong{display:block;font-size:13.5px;font-weight:600;line-height:1.45}.news-item:hover strong{color:var(--blue)}
+    .news-meta{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;margin-top:4px}.news-bullet{width:6px;height:6px;background:var(--mint);border-radius:50%;display:inline-block}.news-bullet.warn{background:var(--gold)}.news-tag{font-size:10.5px;background:var(--mint-bg);color:#0f766e;border-radius:4px;padding:0 5px}
+    .empty-feed{padding:14px;background:#f7f9fc;border-radius:9px;margin:10px 2px;color:var(--muted);font-size:13px}
+    .methodology{margin-top:16px;padding:16px 20px;border:1px solid var(--line);background:#fff;border-radius:var(--r);color:var(--ink2);font-size:13px;display:flex;gap:12px}
+    .feed-panel .pane-top,.sources-panel .pane-top,.chat-panel .pane-top{padding:14px 16px}
+    .vtable td .status{display:inline-flex;align-items:center;gap:6px;font-weight:600}.vtable td{white-space:nowrap}.vtable .act{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font-size:12.5px}
+    .status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.status-card{padding:16px 18px}.status-card h3{margin:0 0 4px;font:700 15px 'Inter';display:flex;align-items:center;gap:8px}.status-card p{margin:4px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+    .sdot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#94a3b8}.sdot.ok{background:var(--green)}.sdot.warn{background:#f59e0b}.sdot.bad{background:#ef4444}
+    .card-pad{padding:16px 18px}.card h2{font:700 16px 'Inter';margin:0 0 10px}
+    .demo-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.demo-bar button{flex:1 1 auto;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 10px;font-weight:600;font-size:13px;box-shadow:var(--shadow)}
+    .demo-bar button:hover{border-color:#b9cde2}.demo-bar button.on{background:var(--navy);border-color:var(--navy);color:#fff}.demo-bar button.ghost{flex:0 0 auto;color:var(--muted)}
+    body.demo .controls-panel{display:none!important}body.demo .planner{grid-template-columns:1fr}body.demo .map-container{height:560px}
+    @media(max-width:1280px){.ov-grid{grid-template-columns:1fr}.planner{grid-template-columns:1fr}.controls-panel{position:static;max-height:none}.two-pane{grid-template-columns:1fr}.status-grid{grid-template-columns:1fr 1fr}.fleet-totals{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:900px){.sidenav{transform:translateX(-100%);transition:transform .2s;box-shadow:0 0 40px #0003}body.nav-open .sidenav{transform:none}.main{margin-left:0}.menu-btn{display:grid!important}
+      .kpis,.metric-grid{grid-template-columns:1fr}.unc-grid,.ops-grid{grid-template-columns:1fr 1fr}.ops-approve{grid-template-columns:1fr}.status-grid{grid-template-columns:1fr}.user div{display:none}.map-container{height:380px}.content{padding:18px 16px 40px}.topbar{padding:0 16px}.page-head h1{font-size:26px}.legend-inline{display:none}}
+    .menu-btn{display:none}
+
+  </style>
+</head>
+<body data-page="overview">
+<aside class="sidenav" aria-label="Main navigation">
+  <div class="logo"><svg viewBox="0 0 32 32" fill="none"><path d="M3 12c4-4 7 2 11-1s7-5 15-1" stroke="#0e9bb0" stroke-width="3" stroke-linecap="round"/><path d="M3 19c4-4 7 2 11-1s7-5 15-1" stroke="#0f3b63" stroke-width="3" stroke-linecap="round"/><path d="M6 25.5c3-2.4 5.5.8 8.6-.6S20 22 26 24.6" stroke="#5cc7d6" stroke-width="2.4" stroke-linecap="round"/></svg>Tideline</div>
+  <nav class="nav" id="nav">
+    <button type="button" data-nav="overview"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Overview</span></button>
+    <button type="button" data-nav="vessels"><svg viewBox="0 0 24 24"><path d="M4 15l1.5 5h13L20 15M6 15V9h12v6M9 9V5h6v4M3 15h18"/></svg><span>Vessels</span></button>
+    <button type="button" data-nav="voyages"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/></svg><span>Voyages</span></button>
+    <button type="button" data-nav="operations"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Operations</span><span class="count" id="navOpsCount" hidden></span></button>
+    <button type="button" data-nav="compliance"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Compliance</span></button>
+    <button type="button" data-nav="reports"><svg viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h6"/></svg><span>Reports</span></button>
+  </nav>
+  <nav class="nav nav-bottom">
+    <button type="button" data-nav="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+    <button type="button" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17.5v.01"/></svg><span>Help</span></button>
+  </nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button type="button" class="icon-btn menu-btn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="globalSearch" list="searchList" placeholder="Search vessels, ports, or voyages…" autocomplete="off" aria-label="Search vessels, ports, or voyages"><datalist id="searchList"></datalist></div>
+    <div class="top-right">
+      <button type="button" class="demo-btn" id="demoToggle" aria-pressed="false">▶ Demo view</button>
+      <button type="button" class="icon-btn" id="bellBtn" aria-label="Decisions needed"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg><span class="dot" id="bellDot" hidden></span></button>
+      <div class="user"><span class="avatar" id="userAvatar">FO</span><div><b id="userName">Fleet operator</b><small>Fleet Operations</small></div></div>
+    </div>
+  </header>
+  <main class="content">
+    <div class="demo-bar" id="demoBar" hidden>
+        <button type="button" data-demo="today">🌍 Today's world</button>
+        <button type="button" data-demo="normal">☀ Normal times</button>
+        <button type="button" data-demo="redsea">⛔ Close the Red Sea</button>
+        <button type="button" data-demo="atsea">⛴ Day 9 at sea</button>
+        <button type="button" data-demo="news">📰 Paste a news report</button>
+        <button type="button" data-demo="fleet">▦ Fleet of 5</button>
+        <button type="button" data-demo="live">◉ Live ships</button>
+        <button type="button" data-demo="approve">✓ Approve &amp; monitor</button>
+        <button type="button" data-demo="launch">🚢 Launch fleet</button>
+        <button type="button" data-demo="play">⏩ Play fleet</button>
+        <button type="button" data-demo="hit" title="Red Sea closure if ships use Suez, otherwise a severe Cape storm, applied where the ships are now">⚡ Event hits fleet</button>
+        <button type="button" data-demo="reset" class="ghost">↺ Reset</button>
+      </div>
+
+    <section class="page" data-page="overview">
+      <div class="page-head"><div><h1>Fleet overview</h1><p>Global operations at a glance</p></div><div class="when"><b id="ovDate">—</b><br><span id="utcClock">--:--:--</span> UTC</div></div>
+      <div class="kpis">
+        <button type="button" class="kpi" data-goto="vessels"><span class="ic blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l1.5 5h13L20 15M6 15V9h12v6M9 9V5h6v4M3 15h18"/></svg></span><div><b id="kpiVessels">—</b><span>vessels</span><small id="kpiVesselsSub">—</small></div><span class="chev">›</span></button>
+        <button type="button" class="kpi" data-goto="decisions"><span class="ic orange"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg></span><div><b id="kpiDecisions">—</b><span>decisions needed</span><small>Require your attention</small></div><span class="chev">›</span></button>
+        <button type="button" class="kpi" data-goto="operations"><span class="ic green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b id="kpiOnTrack">—</b><span>on track</span><small>Operating as planned</small></div><span class="chev">›</span></button>
+      </div>
+      <div class="ov-grid">
+        <div id="slot-overview"></div>
+        <div class="card" id="decisionsCard"><div class="decisions-head"><h2>Decisions needed <span class="badge" id="decisionsBadge">0</span></h2><button type="button" class="view-all" data-goto="operations">View all →</button></div><div class="decisions" id="decisionsList"></div></div>
+      </div>
+    </section>
+
+    <section class="page" data-page="voyages">
+      <div class="page-head"><div><h1>Voyage planner</h1><p>Route, speed, refuelling, risk, insurance and compliance — optimized together</p></div></div>
+      <section class="metric-grid">
+    <div class="metric"><div class="metric-label">Recommended route <span class="icon">↗</span></div><div class="metric-value mint" id="metricRoute">—</div><div class="metric-sub" id="metricRouteSub">Comparing available corridors</div></div>
+    <div class="metric"><div class="metric-label">Estimated transit <span class="icon">◷</span></div><div class="metric-value" id="metricEta">—</div><div class="metric-sub" id="metricEtaSub">Modeled door-to-port transit</div></div>
+    <div class="metric"><div class="metric-label">Projected voyage cost <span class="icon">＄</span></div><div class="metric-value" id="metricCost">—</div><div class="metric-sub" id="metricCostSub">Illustrative vessel economics</div></div>
+    <div class="metric"><div class="metric-label">Decision advantage <span class="icon">◈</span></div><div class="metric-value amber" id="metricSavings">—</div><div class="metric-sub" id="metricSavingsSub">Versus next feasible alternative</div></div>
+  </section>
+      <div class="planner">
+        <aside class="panel controls-panel"><div class="pane-top"><h2>Plan a voyage</h2><span class="small-label">Inputs</span></div><div class="controls-body">
+      <details class="ctl" open><summary>Route &amp; vessel</summary>
+        <div class="field-block"><div class="seg" id="planMode"><button type="button" data-pmode="single" class="active">◉ Single voyage</button><button type="button" data-pmode="fleet">○ Fleet</button></div></div>
+        <div class="field-block fleet-only" id="fleetPick" hidden><div class="field-label">Fleet ships <span class="val small">fuel on board</span></div><div id="fleetShips"></div><button type="button" class="chat-send fleet-go" id="fleetGo">Plan fleet</button><div class="hint">Shares the route, objective, conditions and events below. Refueling is coordinated so ships don't queue at the same port.</div>
+          <details class="sub" id="assignBox"><summary>Assign cargo jobs to ships</summary><div class="hint" style="margin:6px 0">Which ticked ship should take which job? Tideline plans every compatible pair (positioning from where the ship is, then the loaded voyage) and checks every assignment.</div>
+            <div id="assignJobs" class="assign-jobs"></div><button type="button" class="ops-link" id="assignAdd">＋ Add a job</button>
+            <div class="field-label" style="margin-top:10px">Where the ships are now</div><div id="assignShips" class="assign-jobs"></div>
+            <button type="button" class="chat-send fleet-go" id="assignGo">Find best assignment</button></details></div>
+        <div class="field-block"><label class="field-label" for="lane">Quick lane <span>↗</span></label><div class="select-wrap"><select autocomplete="off" id="lane"></select></div></div>
+        <div class="field-block"><label class="field-label" for="ship">Vessel</label><div class="select-wrap"><select autocomplete="off" id="ship"></select></div><div class="hint" id="shipHint">Loading fleet…</div></div>
+        <div class="two-col"><div class="field-block"><label class="field-label" for="origin">From</label><div class="select-wrap"><select autocomplete="off" id="origin"></select></div></div><div class="field-block"><label class="field-label" for="destination">To</label><div class="select-wrap"><select autocomplete="off" id="destination"></select></div></div></div>
+      </details>
+      <details class="ctl" open><summary>Priorities</summary>
+        <div class="field-block"><div class="seg" id="objectives"><button type="button" data-mode="balanced" class="active">⚖ Balanced</button><button type="button" data-mode="cheapest">＄ Cheapest</button><button type="button" data-mode="fastest">◷ Fastest</button><button type="button" data-mode="safest">◇ Safest</button><button type="button" data-mode="greenest" class="wide">❦ Greenest</button></div>
+          <details class="sub"><summary>Fine-tune weights (cost · carbon · risk)</summary>
+            <div class="weights" id="weights">
+          <div class="w-row"><label for="wRisk">Risk aversion</label><b id="wRiskVal">—</b></div><input autocomplete="off" id="wRisk" type="range" min="0" max="100" step="1" value="13">
+          <div class="w-row"><label for="wCarbon">Carbon price</label><b id="wCarbonVal">—</b></div><input autocomplete="off" id="wCarbon" type="range" min="0" max="300" step="10" value="50">
+          <div class="w-row"><label for="wTime">Value of time</label><b id="wTimeVal">—</b></div><input autocomplete="off" id="wTime" type="range" min="1" max="5" step="0.25" value="1">
+          <div class="hint" id="weightsHint">Presets set these. Move one to weigh cost, carbon and risk your own way.</div>
+        </div>
+          </details></div>
+      </details>
+      <details class="ctl" open><summary>World &amp; scenarios</summary>
+        <div class="field-block"><div class="field-label">World conditions</div><div class="seg" id="condMode"><button type="button" data-cond="today" class="active">◉ Today</button><button type="button" data-cond="normal">○ Normal times</button></div><div class="hint" id="condHint">Sourced snapshot of real conditions: fuel prices, war-risk premiums, security, live chokepoint traffic.</div></div>
+        <div class="field-label" style="margin-top:4px">What if…</div>
+        <label class="toggle-row"><span><strong>Red Sea passage closed</strong><span class="description">Bab el-Mandeb closure → hard rule</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="blockBab"><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Red Sea threat raised</strong><span class="description">Higher risk + war-risk premium</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="threatBab"><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Insurers cancel Red Sea war cover</strong><span class="description">Not insured there → re-route (or buy cover)</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="coverBab"><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Suez Canal closed</strong><span class="description">Canal transit unavailable</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="blockSuez"><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Strait of Hormuz closed</strong><span class="description">Seals Persian Gulf ports</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="blockHormuz"><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Two West Africa ports closed</strong><span class="description">Dakar and Abidjan unavailable</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="closeWestAfrica"><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Severe storm off the Cape</strong><span class="description">7.5 m waves near Cape Agulhas</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="stormCape"><span class="track"></span></span></label>
+        <div class="extra-events" id="extraEvents"></div>
+        <div class="field-block progress-block"><label class="field-label" for="progress">Voyage progress <span class="val" id="progressLabel">In port</span></label><input autocomplete="off" id="progress" type="range" min="0" max="40" value="0" step="0.5"><div class="range-ends"><span>Departure</span><span id="progressMax">Arrival</span></div><div class="hint" id="progressHint">Slide to put the ship at sea on the current plan, then add an event: Tideline re-plans from where the ship is.</div><button type="button" class="link-btn" id="progressReset" hidden>↺ Back to departure</button></div>
+      </details>
+      <details class="ctl"><summary>Advanced</summary>
+        <div class="field-block"><label class="field-label" for="fuel">Fuel on board <span class="val" id="fuelLabel">—</span></label><input autocomplete="off" id="fuel" type="range" min="0" max="8000" value="2500" step="50"><div class="range-ends"><span>0 t</span><span id="fuelMax">—</span></div></div>
+        <div class="field-block"><label class="field-label" for="deadline">Deadline <span class="val small">days from departure</span></label><div class="two-col tight"><input autocomplete="off" id="deadline" class="text-input" type="number" min="1" max="120" step="1" placeholder="None"><div class="select-wrap"><select autocomplete="off" id="deadlineType" aria-label="Deadline type"><option value="hard">Hard</option><option value="soft">Soft (penalty)</option></select></div></div></div>
+        <div class="field-block"><label class="field-label" for="berth">Berth ready at destination <span class="val small">days after departure</span></label><input autocomplete="off" id="berth" class="text-input" type="number" min="1" max="150" step="0.5" placeholder="Unknown (arrive as planned)"><div class="hint">Set it and Tideline slows the ship to arrive just as the berth frees up, instead of waiting at anchorage. A congestion queue at the destination does the same automatically.</div></div>
+        <div class="field-block"><label class="toggle-row"><span><strong>Allow routes outside insurance cover</strong><span class="description">Off: Tideline avoids zones the ship's policy doesn't cover (see Compliance)</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="allowUninsured"><span class="track"></span></span></label></div>
+        <div class="field-block"><div class="field-label">Fuel model for this ship <span class="val small" id="calState">—</span></div>
+          <div class="hint" id="calInfo" style="margin:0 0 6px">Upload the ship's noon reports (CSV: speed_kn, distance_nm, fuel_t; optional displacement_t, hs_m, headwind_ms, current_kn) to retrain its fuel model on real data.</div>
+          <div class="cal-row"><label class="ops-primary cal-file">Upload noon reports<input type="file" id="calFile" accept=".csv,text/csv" hidden></label><button type="button" class="ops-link" id="calSample">Try sample reports (synthetic)</button><button type="button" class="ops-link" id="calReset" hidden>Reset</button></div>
+          <a class="ops-link" id="calDownload" href="/api/calibrate/sample?ship_id=aurora" download style="font-size:10.5px">Download the sample file</a></div>
+        <div class="field-block"><label class="field-label" for="cargo">Cargo segment</label><div class="select-wrap"><select autocomplete="off" id="cargo"></select></div><div class="hint">Tailors the news watch and which headlines count toward risk.</div></div>
+        <div class="field-block"><div class="field-label">Vessel / cargo links <span class="val small">compliance</span></div>
+        <label class="check-row"><input type="checkbox" autocomplete="off" id="affSaudi"> Saudi-linked <span class="hint-inline">Houthi embargo → avoid Bab el-Mandeb</span></label>
+        <label class="check-row"><input type="checkbox" autocomplete="off" id="affIran"> Iran-linked <span class="hint-inline">US blockade → avoid Hormuz</span></label></div>
+        <div class="field-label" style="margin-top:6px">Live inputs</div>
+        <label class="toggle-row"><span><strong>Use live weather forecast</strong><span class="description" id="liveWeatherDesc">Open-Meteo waves, wind, currents</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="liveWeather" checked><span class="track"></span></span></label>
+        <label class="toggle-row"><span><strong>Use press-risk signals</strong><span class="description">Unverified headlines → soft risk only</span></span><span class="switch"><input type="checkbox" autocomplete="off" id="autoNews" checked><span class="track"></span></span></label>
+        <div style="margin-top:12px"><div class="assumptions"><b>How this is calculated</b><br>The optimizer picks route, speed per segment and refueling stops. Fuel burn comes from a regression trained on <b>simulated</b> data. Fleet, ports, prices and seasonal weather are <b>sample</b> values.</div></div>
+      </details>
+        </div></aside>
+        <div class="planner-main">
+          <div id="slot-voyages"></div>
+          <div class="panel fleet-panel" id="fleetPanel" hidden><div class="routes-head"><h2>Fleet plan</h2><span class="small-label" id="fleetMeta">—</span></div><div class="fleet-body" id="fleetBody"></div></div>
+      <div class="panel fleet-panel" id="assignPanel" hidden><div class="routes-head"><h2>Fleet assignment</h2><span class="small-label" id="assignMeta">—</span></div><div class="fleet-body" id="assignBody"></div></div>
+          <div class="panel routes-panel"><div class="routes-head"><h2>Route alternatives</h2><span class="small-label" id="routeCount">2 corridors modeled</span></div><div class="routes-body" id="routesList"></div><div class="alerts" id="alerts"></div></div>
+          <div class="panel plan-panel"><div class="routes-head"><div class="tabs" role="tablist" id="planTabs"><button type="button" role="tab" data-tab="voyage" class="on">Voyage plan</button><button type="button" role="tab" data-tab="costs">Costs</button><button type="button" role="tab" data-tab="compliance">Compliance <span class="tab-count" id="complianceCount"></span></button></div><span class="small-label" id="planMeta">—</span></div>
+        <div class="plan-body" data-tab="voyage">
+          <div class="tab-pane" data-pane="voyage"><div id="jitBox" class="jit-box" hidden></div><div id="uncBox" class="unc-box" hidden></div><div class="sub-h">Fuel on board along the voyage</div><svg id="fuelChart" viewBox="0 0 640 180" role="img" aria-label="Fuel on board over the voyage"></svg>
+            <div class="sub-h">Checkpoints</div><div class="table-wrap"><table class="cp-table" id="cpTable"></table></div></div>
+          <div class="tab-pane" data-pane="costs"><div id="costList" class="cost-list"></div></div>
+          <div class="tab-pane" data-pane="compliance"><div class="hint" style="margin:0 0 8px">Decision support, not legal advice.</div><div id="complianceList" class="compliance-list"></div></div>
+        </div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" data-page="operations">
+      <div class="page-head"><div><h1>Operations</h1><p>Approved voyages, monitored every few minutes from where each ship is</p></div></div>
+      <div id="slot-operations" style="margin-bottom:16px"></div>
+      <div class="panel ops-panel" id="opsPanel"><div class="routes-head"><h2>Operations <span class="tab-count" id="opsAlertCount"></span></h2><span class="small-label" id="opsMeta">Approve a plan to start monitoring it</span></div>
+        <div class="ops-body">
+          <form class="ops-approve" id="opsApprove"><div class="ops-approve-title">Approve the recommended plan <span id="opsApprovePlan" class="small"></span></div>
+            <input id="opsName" placeholder="Your name (required)" maxlength="80" autocomplete="name" required>
+            <input id="opsNote" placeholder="Reason / note for the log" maxlength="300">
+            <input id="opsMmsi" placeholder="Ship MMSI (optional, links live AIS)" inputmode="numeric" maxlength="9">
+            <button type="submit" class="ops-primary" id="opsApproveBtn">✓ Approve &amp; monitor</button>
+            <div class="hint" id="opsApproveMsg">Tideline re-runs the optimizer on the server, logs who approved what, then re-checks the voyage every few minutes from where the ship is.</div></form>
+          <div id="opsList" class="ops-list"></div>
+          <div class="ops-foot"><button type="button" class="ops-link" id="opsAuditBtn">Audit log</button><span id="opsAuditState"></span></div>
+        </div></div>
+    </section>
+
+    <section class="page" data-page="vessels">
+      <div class="page-head"><div><h1>Vessels</h1><p>Your fleet, its status, insurance and fuel models</p></div></div>
+      <div class="card"><div class="table-wrap" style="border:0;border-radius:0"><table class="cp-table vtable" id="vesselsTable"></table></div></div>
+      <div class="hint" style="margin-top:10px">Ship profiles are sample data. Live AIS positions appear on the map with “Live ships”; link a ship's MMSI to a voyage in Operations.</div>
+    </section>
+
+    <section class="page" data-page="compliance">
+      <div class="page-head"><div><h1>Compliance &amp; insurance</h1><p>Policies, sanctions screening and official warnings</p></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="pane-top"><h2>Insurance policies</h2><span class="small-label">Sample terms, data/insurance.json</span></div><div class="table-wrap" style="border:0;border-radius:0"><table class="cp-table" id="policyTable"></table></div></div>
+      <div class="two-pane"><div class="card card-pad" id="sanctionsCard"><h2>Sanctions screening</h2><div class="hint">Loading…</div></div><div class="card card-pad" id="warningsCard"><h2>Official navigational warnings</h2><div class="hint">Loading…</div></div></div>
+    </section>
+
+    <section class="page" data-page="reports">
+      <div class="page-head"><div><h1>Reports</h1><p>Where every number comes from, live feeds and the audit trail</p></div><button type="button" class="demo-btn" id="reportsAudit">Open audit log</button></div>
+      <div class="two-pane"><div class="panel sources-panel"><div class="pane-top"><h2>Data sources</h2><span class="live-chip" id="srcBadge">TODAY</span></div><div class="sources-list" id="sourcesList"><div class="empty-feed">Waiting for the first plan…</div></div></div><div class="panel feed-panel"><div class="pane-top"><h2>Intelligence feed</h2><span class="live-chip" id="feedBadge">CONNECTING</span></div>
+      <div class="signal-block"><div class="signal-label">Ocean conditions <span>~ WAVE HEIGHT</span></div><div class="signal-number" id="waveNumber">— <span style="font-size:13px">m</span></div><div class="signal-caption" id="waveCaption">Fetching marine model nowcasts…</div><div class="weather-row"><span style="font-size:11px;color:#a8bdc9">Highest sampled wave (now)</span><b id="waveFlag" style="font-size:11px;color:var(--mint)">—</b></div><div class="bar-track"><div class="bar-fill" id="waveBar"></div></div><div class="signal-mini"><div class="mini-box"><b id="forecastCount">—</b><small>Waypoint forecasts in horizon</small></div><div class="mini-box"><b id="geoCount">—</b><small>News risk mentions*</small></div></div><div style="font-size:9px;color:#618499;margin-top:10px">*Press signals are not verified safety advisories.</div></div>
+      <div class="section-feed-head"><h3>Geopolitical watch</h3><button type="button" class="tool-btn" id="refreshFeeds" title="Refresh live feeds" style="font-size:13px;height:28px">↻</button></div><div class="news-items" id="newsItems"><div class="empty-feed">Loading recent shipping headlines from GDELT…</div></div>
+      <div style="padding:0 17px 17px"><div class="assumptions"><b>Safety boundary:</b> Unverified news affects risk scores, not hard closures. Closure toggles are simulations. For a real voyage, verify with official maritime warnings, nautical charts, canal authorities and the ship's master.</div></div>
+    </div></div>
+      <section class="methodology"><span style="font-size:18px;color:#62cdbf">ⓘ</span><div><strong>Prototype boundaries.</strong> The optimizer searches a 22-port planning network whose lanes follow the Eurostat MARNET maritime network (not charted, collision- or grounding-safe paths). Fuel burn comes from a regression trained on simulated data unless a ship has been calibrated on its noon reports; risk scores are transparent assumptions, not calibrated probabilities. Distances and ETAs are modeled from waypoint segments. Live AIS positions (with a key) and the OFAC sanctions list are connected; verified port dues, contractual fuel rates, berth availability, regulatory clearances and official security notices are not. Dispatch messages are drafts; nothing is sent or booked automatically. The Open-Meteo API provides model-generated marine conditions, not shipboard measurements. Press articles are indicators only. <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Forecast methodology ↗</a> &nbsp;·&nbsp; <a href="https://www.suezcanal.gov.eg/English/Navigation/Tolls/Pages/TollsTable.aspx" target="_blank" rel="noopener">Official Suez tolls ↗</a></div></section>
+    </section>
+
+    <section class="page" data-page="settings">
+      <div class="page-head"><div><h1>Settings</h1><p>Connections and data feeds</p></div><button type="button" class="demo-btn" id="statusRefresh">↻ Refresh</button></div>
+      <div class="status-grid" id="statusGrid"></div>
+      <div class="hint" style="margin-top:14px">Keys are set as environment variables when starting the server (OPENAI_API_KEY, AISSTREAM_API_KEY); they never reach the browser.</div>
+    </section>
+
+    <footer class="hint" style="margin-top:28px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span><b>Tideline</b> · Built for c0mpiled-14 at UC Berkeley</span><span>Decision support for a pitch. Not for navigation.</span></footer>
+  </main>
+</div>
+<div id="mapHome"><div class="panel map-card"><div class="map-head"><div><div class="map-title" id="mapTitle">Global route intelligence</div><div class="map-sub plan-only" id="mapSubtitle">Singapore → Rotterdam · Maritime corridors</div></div><div class="map-tools"><span class="legend-inline ov-only"><span><i class="ldot ok"></i>On track</span><span><i class="ldot att"></i>Attention</span><span><i class="ldot dec"></i>Decision needed</span><span><i class="ldot idle"></i>In port</span></span><span class="fleet-sim"><span class="sim-pill" id="simClock">Now</span><button type="button" class="tool-btn" id="simPlay" aria-pressed="false" title="Move the fleet along their routes">▶ Play</button><select class="map-select" id="simSpeed" aria-label="Playback speed"><option value="real">Real time</option><option value="hour">1 hour / sec</option><option value="six">6 hours / sec</option><option value="day">1 day / sec</option></select><button type="button" class="tool-btn" id="simReset" title="Back to now">Now</button></span><select class="map-select ov-only" id="vesselFilter" aria-label="Filter vessels"><option value="all">All vessels</option><option value="decision">Decision needed</option><option value="attention">Attention</option><option value="ontrack">On track</option><option value="idle">In port</option></select><button type="button" class="tool-btn" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button><button type="button" class="tool-btn" id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button><button type="button" class="tool-btn" id="zoomReset" title="Reset map zoom" aria-label="Reset map">⤢</button><button type="button" class="tool-btn ais-btn" id="aisToggle" title="Show live ships (AIS)" aria-pressed="false">⛴ Live ships</button></div></div>
+        <div class="map-container" id="mapContainer">
+          <svg id="worldMap" viewBox="0 0 1200 650" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Illustrative maritime route comparison map">
+            <defs><filter id="routeGlow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="cardShadow" x="-20%" y="-50%" width="140%" height="200%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0f1f33" flood-opacity=".18"/></filter><radialGradient id="portGlow"><stop offset="0" stop-color="#14b8a6" stop-opacity=".45"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0"/></radialGradient></defs>
+            <g id="gridSvg"></g><g id="landSvg"></g><g id="mapNamesSvg"></g><g id="networkSvg"></g><g id="stormSvg"></g><g id="zonesSvg"></g><g id="routesSvg"></g><g id="weatherSvg"></g><g id="portsSvg"></g><g id="fleetSvg"></g><g id="opsSvg"></g><g id="vesselSvg"></g><g id="aisSvg"></g><g id="shipSvg"></g>
+          </svg>
+          <div class="map-overlay-label"><small>Not for navigation</small></div>
+          <div class="ais-card" id="aisCard" hidden></div><div class="ais-bar" id="aisBar" hidden><span id="aisStatusText">Live ships off</span><span class="ais-track"><input id="aisMmsi" inputmode="numeric" maxlength="9" placeholder="MMSI to track" aria-label="MMSI to track"><button type="button" id="aisTrackBtn">Track</button><button type="button" id="aisClearBtn" title="Back to chokepoint watch">Watch chokepoints</button></span></div>
+          <div class="map-legend plan-only"><span><i class="legend-line"></i>Plan</span><span><i class="legend-line alt"></i>Alternative</span><span><i class="legend-line blocked"></i>Replaced / blocked</span><span><i class="legend-dot fuel"></i>Refuel</span><span class="legend-haz">▲ Hazard</span></div>
+        </div><div class="map-foot plan-only"><span class="pill" id="weatherStatus">◌ Weather loading</span><span class="pill" id="newsStatus">◌ News loading</span><span id="planStatus" class="pill">◌ Planning</span><span class="pill start-pill" id="startPill" hidden></span><span>Wave forecasts at plan checkpoints · <strong>7-day horizon</strong></span></div></div></div>
+<button type="button" class="assist-fab" id="assistBtn">✦ Ask Tideline</button>
+<aside class="drawer" id="assistDrawer" aria-label="Tideline assistant"><div class="panel chat-panel"><div class="pane-top"><h2>Ask Tideline</h2><span style="display:flex;gap:8px;align-items:center"><span class="live-chip" id="aiBadge">AI</span><button type="button" class="drawer-close" id="assistClose" aria-label="Close">✕</button></span></div>
+      <div class="chat-log" id="chatLog" aria-live="polite"><div class="chat-msg bot">Tell me what changed or what you need. I set the inputs, run the optimizer, and explain the result. Every number comes from the planner.</div></div>
+      <div class="chat-suggest" id="chatSuggest"><button type="button">Close the Red Sea</button><button type="button">What if we arrive a day later?</button><button type="button">Shanghai to Rotterdam, fastest, deadline 30 days</button><button type="button" data-report="1">Paste a sample news report</button><button type="button">Status of my voyages</button></div>
+      <form class="chat-form" id="chatForm"><textarea id="chatInput" rows="2" placeholder="e.g. Switch to MV Tern and avoid the Red Sea, or paste a report…" aria-label="Message to Tideline" autocomplete="off"></textarea><button type="submit" class="chat-send" id="chatSend">Send</button></form>
+    </div></aside>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card"><button type="button" class="x" id="modalClose" aria-label="Close">✕</button><div id="modalBody"></div></div></div>
+<script src="/app.js?v=tideline-3" defer></script>
+</body>
+</html>

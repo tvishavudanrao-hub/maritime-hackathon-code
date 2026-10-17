@@ -1,0 +1,13 @@
+{
+  "_note": "SAMPLE policies for the demo fleet, illustrative terms only (not real policies or quotes). Real policies come from the operator's broker: hull & machinery, war risks, P&I club entry, and their trading warranties.",
+  "listed_area_rule": "War-risk policies normally exclude JWC listed areas unless the owner notifies underwriters and pays an additional premium; underwriters can cancel war cover on 7 days' notice.",
+  "policies": {
+    "aurora": {"insurer": "Sample H&M + war policy (Lloyd's market)", "war_cover": true, "notice_days": 7,
+               "warranties": {"gulf_guinea": {"rate": 0.0015, "text": "Trading warranty excludes the Gulf of Guinea; held covered at an additional premium"}}},
+    "borealis": {"insurer": "Sample H&M + war policy (Nordic market)", "war_cover": true, "notice_days": 7, "warranties": {}},
+    "meridian": {"insurer": "Sample tanker H&M + war policy", "war_cover": true, "notice_days": 7,
+                 "warranties": {"hormuz": {"rate": 0.0025, "text": "Tanker warranty: Gulf transits held covered at an additional premium, subject to underwriters' agreement"}}},
+    "tern": {"insurer": "Sample H&M policy, no war-risk cover", "war_cover": false, "notice_days": null, "warranties": {}},
+    "polaris": {"insurer": "Sample H&M + war policy (ice-class feeder)", "war_cover": true, "notice_days": 7, "warranties": {}}
+  }
+}

@@ -1,0 +1,47 @@
+{
+ "_note": "Regulatory and compliance rules used for screening. Each rule carries its source and date. Screening is decision support, not legal advice: verify with counsel, P&I club, underwriters and port agents.",
+ "eu_ets": {
+  "eu_ports": ["RTM"],
+  "phase_in_2026": 1.0,
+  "share_non_eu_voyage": 0.5,
+  "share_intra_eu_voyage": 1.0,
+  "eua_eur_per_t": 82.0,
+  "eur_usd": 1.121,
+  "sources": [
+   {"text": "EU ETS covers 100% of shipping emissions from 2026; voyages between a non-EU and an EU port count 50%", "url": "https://www.zeronorth.com/blog/regulations-what-is-the-eu-ets", "date": "2026-08-17"},
+   {"text": "Stops solely for bunkering are not ports of call under the EU ETS", "url": "https://dan-bunkering.com/media/5k4fz1jw/faq.pdf", "date": "2026"},
+   {"text": "EU carbon allowance (EUA) price about EUR 82/t in July 2026 (GMK Center, 16 Jul 2026)", "url": "https://gmk.center/news/evropejskie-ceny-na-uglerod-v-ijule-vyrosli-do-e82-t/", "date": "2026-07-16", "stale": true},
+   {"text": "EUR/USD 1.1210 close on 16 Oct 2026 (Pound Sterling Live)", "url": "https://www.poundsterlinglive.com/history/EUR-USD-2026", "date": "2026-10-16"}
+  ],
+  "note": "Las Palmas (outermost region) and Gibraltar (non-EU) are not treated as EU ETS ports here."
+ },
+ "jwc_listed": {
+  "circular": "JWLA-035, 16 Sep 2026",
+  "url": "https://lmalloyds.com/wp-content/uploads/2026/09/JWLA-035-Black-Sea.pdf",
+  "zones": {
+   "bab": "Gulf of Aden and Southern Red Sea (Red Sea south of 25.5°N, excluding Egyptian territorial waters)",
+   "hormuz": "Persian/Arabian Gulf and Gulf of Oman",
+   "gulf_guinea": "Gulf of Guinea (waters as defined, Togo coast to Cape Lopez)"
+  },
+  "ports": {
+   "JEA": "United Arab Emirates (listed country)",
+   "FUJ": "United Arab Emirates (listed country)"
+  }
+ },
+ "affiliations": {
+  "saudi": {
+   "label": "Saudi-linked vessel or cargo",
+   "close_zones": ["bab"],
+   "rule": "Houthi 'maritime embargo' on Saudi-linked shipping declared 20 Jul 2026; Saudi tankers attacked near Bab el-Mandeb",
+   "url": "https://redanalysis.org/2026/10/08/houthis-bab-el-mandeb-maritime-transport/",
+   "date": "2026-10-12"
+  },
+  "iran": {
+   "label": "Iran-linked vessel or cargo",
+   "close_zones": ["hormuz"],
+   "rule": "US Central Command blockade of Iranian ports; 130 merchant vessels redirected (Lloyd's List Intelligence)",
+   "url": "https://www.lloydslistintelligence.com/resources/blog/strait-of-hormuz-brief-12-october-2026",
+   "date": "2026-10-12"
+  }
+ }
+}

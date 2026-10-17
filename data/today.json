@@ -1,0 +1,187 @@
+{
+  "_note": "TODAY'S CONDITIONS SNAPSHOT used when conditions = 'today'. Every value carries its source and date. 'estimated' and 'assessment' values are Tideline judgements derived from the cited sources, not published figures.",
+  "as_of": "2026-10-16",
+  "fuel_prices": {
+    "SIN": {
+      "price": 910.0,
+      "basis": "published",
+      "source": "Bunker Index, VLSFO, 16 Oct 2026",
+      "url": "https://www.bunkerindex.com/",
+      "date": "2026-10-16"
+    },
+    "RTM": {
+      "price": 746.0,
+      "basis": "published",
+      "source": "Bunker Index, VLSFO, 16 Oct 2026",
+      "url": "https://www.bunkerindex.com/",
+      "date": "2026-10-16"
+    },
+    "FUJ": {
+      "price": 974.5,
+      "basis": "published",
+      "source": "Bunker Index, VLSFO, 16 Oct 2026",
+      "url": "https://www.bunkerindex.com/",
+      "date": "2026-10-16"
+    },
+    "SHA": {
+      "price": 920.0,
+      "basis": "derived",
+      "date": "2026-10-13",
+      "source": "Derived from ENGINE East of Suez update, 13 Oct 2026: Fujairah VLSFO at a $55/mt premium over Zhoushan (Zhoushan \u2248 Fujairah \u2212 $55)",
+      "url": "https://engine.online/news/east-of-suez-market-update-13-oct-82a4"
+    },
+    "DUR": {
+      "price": 1200.0,
+      "basis": "indicative",
+      "date": "2026-10-16",
+      "source": "ENGINE Europe & Africa update, 16 Oct 2026: a 150\u2013500 mt stem fixed at $1,185/mt, described as below the rest of the Durban market",
+      "url": "https://www.engine.online/news/europe-and-africa-market-update-16-oct-82d6"
+    },
+    "JEA": {
+      "price": 989.5,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Fujairah benchmark (974.5) plus Tideline's sample price differential (+15); no free published quote found"
+    },
+    "CMB": {
+      "price": 965.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+55); no free published quote found"
+    },
+    "PLU": {
+      "price": 1015.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+105); no free published quote found"
+    },
+    "LPA": {
+      "price": 796.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Rotterdam benchmark (746) plus Tideline's sample price differential (+50); no free published quote found"
+    },
+    "GIB": {
+      "price": 786.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Rotterdam benchmark (746) plus Tideline's sample price differential (+40); no free published quote found"
+    },
+    "PSD": {
+      "price": 801.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Rotterdam benchmark (746) plus Tideline's sample price differential (+55); no free published quote found"
+    },
+    "ABJ": {
+      "price": 846.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Rotterdam benchmark (746) plus Tideline's sample price differential (+100); no free published quote found"
+    },
+    "DKR": {
+      "price": 831.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Rotterdam benchmark (746) plus Tideline's sample price differential (+85); no free published quote found"
+    },
+    "CPT": {
+      "price": 1215.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Durban benchmark (1200) plus Tideline's sample price differential (+15); no free published quote found"
+    },
+    "WVB": {
+      "price": 1250.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Durban benchmark (1200) plus Tideline's sample price differential (+50); no free published quote found"
+    },
+    "MUM": {
+      "price": 975.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+65); no free published quote found"
+    },
+    "PUS": {
+      "price": 925.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+15); no free published quote found"
+    },
+    "HAM": {
+      "price": 915.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+5); no free published quote found"
+    },
+    "PIR": {
+      "price": 940.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+30); no free published quote found"
+    },
+    "MBA": {
+      "price": 1025.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+115); no free published quote found"
+    },
+    "LOS": {
+      "price": 1045.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+135); no free published quote found"
+    },
+    "UKB": {
+      "price": 955.0,
+      "basis": "estimated",
+      "date": "2026-10-16",
+      "source": "Estimate: Singapore benchmark (910) plus Tideline's sample price differential (+45); no free published quote found"
+    }
+  },
+  "war_risk": {
+    "bab": {
+      "rate": 0.005,
+      "source": "Al Jazeera, 23 Jul 2026: war-risk cover for Bab al-Mandeb transits about 0.5% of hull value",
+      "url": "https://www.aljazeera.com/economy/2026/7/23/how-shipping-insurance-rates-are-rising-as-hormuz-bab-al-mandeb-shut-down",
+      "date": "2026-07-23",
+      "stale": true
+    },
+    "hormuz": {
+      "rate": 0.075,
+      "source": "Al Jazeera, 23 Jul 2026: Strait of Hormuz war-risk rates rose to 7.5\u201310% of hull value (lower bound used)",
+      "url": "https://www.aljazeera.com/economy/2026/7/23/how-shipping-insurance-rates-are-rising-as-hormuz-bab-al-mandeb-shut-down",
+      "date": "2026-07-23",
+      "stale": true
+    }
+  },
+  "suez_toll_multiplier": {
+    "value": 1.12,
+    "source": "Carra Globe, 26 Sep 2026: 12% Suez surcharge applies from 15 Jul 2026 (base tolls per ship remain Tideline sample values; no single published per-ship figure)",
+    "url": "https://carraglobe.com/suez-vs-cape-of-good-hope-transit-times/",
+    "date": "2026-09-26"
+  },
+  "security": {
+    "bab": {
+      "level": 0.2,
+      "source": "Tideline assessment from Red Team Analysis, 8\u201312 Oct 2026: Houthi control of the strait contested; transits about one third of pre-Oct-2023 levels; no ship attacks reported in September; carriers cautiously returning",
+      "url": "https://redanalysis.org/2026/10/08/houthis-bab-el-mandeb-maritime-transport/",
+      "date": "2026-10-12"
+    },
+    "hormuz": {
+      "level": 0.35,
+      "source": "Tideline assessment from Lloyd's List Intelligence, 12 Oct 2026: at least 13 attacks on tankers and gas carriers since 28 Sep; deliberate hostile action assessed 'highly likely'",
+      "url": "https://www.lloydslistintelligence.com/resources/blog/strait-of-hormuz-brief-12-october-2026",
+      "date": "2026-10-12"
+    }
+  },
+  "traffic_fallback": {
+    "bab": {
+      "ratio": 0.33,
+      "source": "Red Team Analysis, Oct 2026: Bab el-Mandeb transits about one third of pre-Oct-2023 levels (used only when the live PortWatch feed is unavailable)",
+      "url": "https://redanalysis.org/2026/10/08/houthis-bab-el-mandeb-maritime-transport/",
+      "date": "2026-10-12"
+    }
+  }
+}
