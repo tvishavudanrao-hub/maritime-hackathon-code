@@ -458,7 +458,8 @@ function warningCauses() {
   const newsForRoute = [...(state.news.regions || [])].sort().join(',') === routeRegions().join(',');
   const causes = [...WC.scenarioCauses(events, limit, locOf),
     ...WC.weatherCauses(plan.legs, limit, node => plan.checkpoints.find(c => c.node === node)?.loc, weatherSource),
-    ...(newsForRoute ? WC.newsCauses(state.news.articles, zoneLabel) : [])];
+    ...(newsForRoute ? WC.newsCauses(state.news.articles, zoneLabel) : []),
+    ...(state.ais.on ? WC.aisCauses(state.ais.data?.anomalies) : [])];   // possible stops, queues and ships gone quiet (advisory only)
   // Risk is compared with the first plan for this ship, route and conditions, so it clears when the cause clears.
   const risk = Math.round(plan.summary.route_risk * 100), id = [state.ship, state.origin, state.destination, state.conditions, state.priority].join('|');
   if (id !== riskId) { riskId = id; riskBase = null; }
@@ -1407,6 +1408,7 @@ function setAis(on) {
   clearInterval(state.ais.timer); clearInterval(state.ais.anim);
   if (on) { pollAis(); state.ais.timer = setInterval(pollAis, 5000); state.ais.anim = setInterval(drawAis, 1000); }
   else { $('aisSvg').innerHTML = ''; $('aisCard').hidden = true; state.ais.sel = null; }
+  updateWarnings();   // AIS alerts only count while the Live ships layer is on
 }
 async function pollAis() {
   try {
@@ -1417,6 +1419,7 @@ async function pollAis() {
   $('aisStatusText').textContent = d.status === 'live' ? `● ${d.ships.length} live ships · ${d.mode || ''}${d.tracked?.length ? ' · tracking ' + d.tracked.join(', ') : ''}`
     : d.status === 'connecting' ? '◌ Connecting to AISStream…' : `△ ${d.error || 'Live ships unavailable'}`;
   drawAis();
+  updateWarnings();   // new possible stops, queues or ships gone quiet
 }
 // Where the ship is now: last report, moved forward along its course at its reported speed (max 15 min).
 function deadReckon(s) {
@@ -2002,6 +2005,8 @@ async function renderSettings() {
       card('Marine weather (Open-Meteo)', w.status === 'live' ? 'ok' : 'warn', `${esc(w.status || '—')}${w.points ? ` · ${w.points_with_data ?? ''}${w.points_with_data != null ? '/' : ''}${w.points} points` : ''}${w.retrieved_at ? ' · ' + esc(fmtEta(w.retrieved_at)) + ' UTC' : ''}`),
       card('Chokepoint traffic (IMF PortWatch)', pw.status === 'live' ? 'ok' : 'warn', `${esc(pw.status || '—')}${pw.latest_date ? ' · data to ' + esc(pw.latest_date) : ''}`),
       card('Live ships (AISStream)', a.status === 'live' ? 'ok' : a.status === 'off' ? '' : 'warn', `${esc(a.status || '—')}${a.ships != null ? ` · ${a.ships} ships · ${a.messages || 0} messages` : ''}${a.error ? ' · ' + esc(a.error) : ''}`),
+      card('AIS chokepoint traffic (advisory)', '', a.status !== 'live' ? 'Needs live AIS (set AISSTREAM_API_KEY).'
+        : `${Object.entries(a.traffic || {}).map(([box, t]) => `${esc(box)}: ${esc(t.note)}`).join(' · ') || 'No ships heard in the watched areas yet.'} Source: AISStream.io. A sample of ships heard, not a full transit count; it does not change any plan or risk score.${a.anomalies ? ` ${a.anomalies} possible alert${a.anomalies === 1 ? '' : 's'} raised (not confirmed).` : ''}`),
       card('Sanctions list (US OFAC SDN)', sx.status === 'loaded' ? 'ok' : 'warn', `${esc(sx.status || '—')}${sx.vessels ? ` · ${sx.vessels.toLocaleString()} vessels` : ''}${sx.error ? ' · ' + esc(sx.error) : ''}`),
       card('Official warnings (NGA)', ad.status === 'live' ? 'ok' : 'warn', `${esc(ad.status || '—')} · ${ad.warnings ?? 0} security warnings on risk zones`),
       card('Voyage monitoring', m.running ? 'ok' : 'warn', `Re-checks approved voyages every ${m.minutes} min`),

@@ -309,7 +309,7 @@ class Handler(SimpleHTTPRequestHandler):
             a=ais.TRACKER.snapshot()
             return self.json_response({'ai':ai_status(),'weather':live_weather.current_status(),'portwatch':portwatch.status(),
                 'sanctions':sanctions.status(),'advisories':{k:advisories.current()[k] for k in ('status','retrieved_at','error')}|{'warnings':len(advisories.current()['warnings'])},
-                'ais':{k:a.get(k) for k in ('status','error','messages','mode')}|{'ships':len(a['ships'])},
+                'ais':{k:a.get(k) for k in ('status','error','messages','mode','traffic')}|{'ships':len(a['ships']),'anomalies':len(a['anomalies'])},
                 'monitor':{'minutes':ops.MONITOR_MINUTES,'running':bool(ops._thread and ops._thread.is_alive())},'audit':ops.verify_audit()})
         if parsed.path=='/api/health':
             return self.json_response({'status':'ok','host':'localhost','version':'0.2','ai':ai_status()})
