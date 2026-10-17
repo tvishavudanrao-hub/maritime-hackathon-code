@@ -114,7 +114,7 @@ function currentRequest() {
 async function requestPlan() {
   if (state.mode === 'fleet') return requestFleet();
   const version = ++state.reqVersion;
-  state.planStatus = 'loading'; renderStatus();
+  state.planStatus = 'loading'; state.planStartedAt = Date.now(); renderStatus();
   const body = currentRequest();
   renderExtraEvents();
   try {
@@ -158,8 +158,13 @@ function renderStatus() {
   const el = $('planStatus');
   const map = {loading: ['◌ Optimizing…', '#b45309'], ok: ['● Plan ready', '#0f766e'], error: ['△ Planner error', '#dc2626'], idle: ['◌ Planning', '#64748b']};
   const [text, color] = map[state.planStatus] || map.idle;
-  el.textContent = text; el.style.color = color;
-  if (state.planStatus === 'loading') $('metricRouteSub').innerHTML = '<span class="spinner"></span>Optimizing route, speed and refueling…';
+  const loading = state.planStatus === 'loading', secs = loading && state.planStartedAt ? Math.round((Date.now() - state.planStartedAt) / 1000) : 0;
+  el.textContent = loading && secs >= 6 ? `${text} ${secs}s` : text; el.style.color = color;
+  if (loading) $('metricRouteSub').innerHTML = '<span class="spinner"></span>Optimizing route, speed and refueling…'
+    + (secs >= 10 ? ` <small>${secs}s so far. A busy or slow server can take a minute; asking for the same thing again is instant.</small>` : '');
+  // while a plan is running, refresh the elapsed time every couple of seconds
+  if (loading && !state.planTicker) state.planTicker = setInterval(renderStatus, 2000);
+  else if (!loading && state.planTicker) { clearInterval(state.planTicker); state.planTicker = null; }
 }
 
 function renderMetrics() {

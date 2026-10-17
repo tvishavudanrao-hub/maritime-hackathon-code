@@ -40,13 +40,15 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from threading import Lock
+import time
+from threading import Lock, Thread
 from urllib.parse import urlparse, parse_qs, urlencode
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 from optimizer import CARGO_SEGMENTS, FLEET_LIST, conditions_payload, fleet_payload, network_payload, plan_voyage
 import news_rank
+import plan_cache
 import portwatch
 from fuel_model import get_fuel_model
 from ai_layer import ai_status, chat
@@ -75,6 +77,25 @@ def get_cached(key, ttl_seconds, supplier, force=False):
     with CACHE_LOCK:
         CACHE[key] = (datetime.now(timezone.utc), answer)
     return answer
+
+
+# Planning is CPU-bound pure Python. Identical requests share one answer for TIDELINE_PLAN_CACHE_S seconds (default 10 min), and
+# only TIDELINE_PLAN_SLOTS plans (default 1) run at once, so a small instance is not starved by several plans in parallel.
+PLANS=plan_cache.PlanCache(ttl_s=float(os.getenv('TIDELINE_PLAN_CACHE_S','600')),slots=int(os.getenv('TIDELINE_PLAN_SLOTS','1')))
+DEFAULT_PLAN_REQUEST={'ship_id':'aurora','origin':'SIN','destination':'RTM','priority':'balanced','fuel_onboard_t':2500,
+                      'live_weather':True,'conditions':'today','cargo':'retail'}   # what the page asks for when it first opens
+
+
+def prewarm_default_plan(wait_s=120):
+    """Plan the page's opening request once the live weather snapshot is in, so the first visitor to a cold server does not wait for it."""
+    deadline=time.time()+wait_s
+    while live_weather.current_status().get('status') in ('loading','off') and time.time()<deadline:
+        time.sleep(2)
+    try:
+        PLANS.get_or_compute(plan_cache.plan_key(DEFAULT_PLAN_REQUEST),lambda:plan_voyage(dict(DEFAULT_PLAN_REQUEST)))
+        print('[plans] default plan ready',flush=True)
+    except Exception as exc:  # warm-up only: a failure just means the first visitor plans it themselves
+        print(f'[plans] warm-up failed: {type(exc).__name__}: {str(exc)[:120]}',flush=True)
 
 
 def fetch_json(url, timeout=9):
@@ -392,8 +413,13 @@ class Handler(SimpleHTTPRequestHandler):
                 import calibration
                 return self.json_response(calibration.calibrate(request))
             if parsed.path=='/api/fleet-plan':
-                return self.json_response(fleet_plan(request))
-            return self.json_response(chat(request) if parsed.path=='/api/chat' else plan_voyage(request))
+                return self.json_response(PLANS.exclusive(lambda:fleet_plan(request)))
+            if parsed.path=='/api/chat':
+                return self.json_response(PLANS.exclusive(lambda:chat(request)))
+            if not isinstance(request,dict):
+                return self.json_response(plan_voyage(request))   # the planner rejects it with a clear message
+            result,hit=PLANS.get_or_compute(plan_cache.plan_key(request),lambda:plan_voyage(request))
+            return self.json_response(dict(result,cached=True) if hit else result)
         except ValueError as exc:
             return self.json_response({'error':str(exc)},400)
         except Exception as exc:
@@ -417,6 +443,8 @@ if __name__ == '__main__':
     if os.getenv('TIDELINE_ADVISORIES','1')!='0':
         advisories.start_background_refresh()   # official NGA navigational warnings, every 3 h
     ops.start_monitor()   # re-checks approved voyages every TIDELINE_MONITOR_MIN minutes (default 15)
+    if os.getenv('TIDELINE_PREWARM','1')!='0':
+        Thread(target=prewarm_default_plan,name='tideline-prewarm',daemon=True).start()   # the page's first plan, ready before anyone asks
     ai=ai_status()
     print(f'Tideline local demo: http://{host}:{port}  (Ctrl+C to stop)',flush=True)
     print(f"Live AIS: {'AISStream.io' if os.getenv('AISSTREAM_API_KEY') else 'off (set AISSTREAM_API_KEY for live ships)'}",flush=True)

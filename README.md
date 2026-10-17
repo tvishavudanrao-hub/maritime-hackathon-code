@@ -26,9 +26,20 @@ cd pelagic-maritime-mvp
 python3 server.py
 ```
 
-Then open **http://127.0.0.1:3001** in a browser. The webserver **binds only to localhost by default**, not your public IP. Stop with `Ctrl+C`.
+Then open **http://127.0.0.1:3001** in a browser. The webserver listens on **all interfaces by default** (`HOST=0.0.0.0`, which hosts such as Render need). On a shared network set `HOST=127.0.0.1` to keep it on your machine. Stop with `Ctrl+C`.
 
-For another local port: `PORT=4000 python3 server.py` (PowerShell: `$env:PORT=4000; py -3 server.py`). Don't override the host binding without understanding the consequences.
+For another local port: `PORT=4000 python3 server.py` (PowerShell: `$env:PORT=4000; py -3 server.py`).
+
+### Running on a small host (for example Render)
+
+Planning is CPU-bound Python, so a shared or throttled CPU can be 10 to 30 times slower than a laptop. The server keeps that manageable:
+
+- Identical plan requests share one answer for 10 minutes (the click time of a scenario does not count). Anyone who asks while it is being computed waits for it instead of starting another.
+- Only one plan runs at a time, so several viewers do not slow each other to a crawl.
+- The plan "as if nothing had happened" is computed once per ship and route and reused for every scenario toggle.
+- When the server starts, the page's opening plan is computed once the live weather arrives, so the first visitor does not pay for it.
+
+Settings (all optional): `TIDELINE_PLAN_CACHE_S` (seconds to reuse a plan, default 600), `TIDELINE_PLAN_SLOTS` (plans at once, default 1), `TIDELINE_PREWARM=0` (skip the start-up plan). A cached answer carries `"cached": true`. Plans are model estimates and use the live weather and headlines as of when they were computed, so they can be up to the cache time old.
 
 ## The hackathon demo (about 2 minutes)
 

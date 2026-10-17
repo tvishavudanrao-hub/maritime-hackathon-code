@@ -33,6 +33,7 @@ import advisories
 import insurance as cover   # module name differs from the local "insurance" cost variable
 import portwatch
 import uncertainty
+from plan_cache import PlanCache, plan_key
 
 ROOT = Path(__file__).resolve().parent
 NETWORK = json.loads((ROOT / 'data' / 'network.json').read_text())
@@ -197,6 +198,23 @@ class Graph:
                     seen.add(e['to'])
                     stack.append(e['to'])
         return seen
+
+    def can_reach_via(self, start, goal, closed_zones, via):
+        """Is there any route start -> goal that avoids `closed_zones` and passes through zone `via`?
+        Ignores fuel, draft, time and weather, so False is certain (no plan can exist) while True only means a search may succeed."""
+        seen, stack = {(start, False)}, [(start, False)]
+        while stack:
+            node, passed = stack.pop()
+            if node == goal and passed:
+                return True
+            for e in self.adj[node]:
+                if closed_zones.intersection(e['zones']):
+                    continue
+                state = (e['to'], passed or via in e['zones'])
+                if state not in seen:
+                    seen.add(state)
+                    stack.append(state)
+        return False
 
 
 GRAPH = Graph(NETWORK)
@@ -485,7 +503,7 @@ def speed_options(ship, fine=False):
 
 
 class Search:
-    def __init__(self, r, ev):
+    def __init__(self, r, ev, edge_cache=None):
         self.r, self.ev, self.ship = r, ev, r['ship']
         self.fuel_model = get_fuel_model(FLEET_LIST)
         self.live = r.get('_live')
@@ -558,7 +576,7 @@ class Search:
             self.path_next = None
         # Time is its own dimension only when it can change feasibility or cost later on.
         self.time_matters = self.deadline_h is not None or bool(ev['storms']) or self.live is not None
-        self.edge_cache = {}
+        self.edge_cache = {} if edge_cache is None else edge_cache   # shared by the corridor searches of one plan
         self.storm_edges = set()
         for edges in list(GRAPH.adj.values()) + list(self.extra_adj.values()):
             for e in edges:
@@ -738,6 +756,7 @@ class Search:
         store = {}
         finals = []
         best = math.inf
+        plain, tm, eps_s, eps_f, eps_h = self.berth_h is None, self.time_matters, EPS_SCORE, EPS_FUEL_T, EPS_HOURS
         while heap:
             lb, _, lab = heapq.heappop(heap)
             if lab.dead:
@@ -761,15 +780,35 @@ class Search:
                 self.score_partial(child)
                 key = (child.node, child.refueled)
                 bucket = store.setdefault(key, [])
-                if any(self.dominates(o, child) for o in bucket):
-                    continue
-                keep = []
-                for o in bucket:
-                    if self.dominates(child, o):
-                        o.dead = True
-                    else:
-                        keep.append(o)
-                bucket[:] = keep
+                if plain:
+                    # The same test as self.dominates, inlined with the child's thresholds worked out once:
+                    # this loop is the planner's hot spot (millions of comparisons per plan).
+                    c_ps, c_fuel, c_zones, c_t = child.ps + eps_s, child.fuel - eps_f, child.zones, child.t + eps_h
+                    dominated = False
+                    for o in bucket:
+                        if o.ps <= c_ps and o.fuel >= c_fuel and o.zones >= c_zones and (not tm or o.t <= c_t):
+                            dominated = True
+                            break
+                    if dominated:
+                        continue
+                    ch_ps, ch_fuel, ch_zones, ch_t = child.ps, child.fuel, child.zones, child.t
+                    keep = []
+                    for o in bucket:
+                        if ch_ps <= o.ps + eps_s and ch_fuel >= o.fuel - eps_f and ch_zones >= o.zones and (not tm or ch_t <= o.t + eps_h):
+                            o.dead = True
+                        else:
+                            keep.append(o)
+                    bucket[:] = keep
+                else:
+                    if any(self.dominates(o, child) for o in bucket):
+                        continue
+                    keep = []
+                    for o in bucket:
+                        if self.dominates(child, o):
+                            o.dead = True
+                        else:
+                            keep.append(o)
+                    bucket[:] = keep
                 if len(bucket) >= MAX_LABELS_PER_STATE:
                     # Full: keep the better plans, never just the earliest ones.
                     worst = max(bucket, key=self.lower_bound)
@@ -882,18 +921,28 @@ def build_plan(fin, search):
     }
 
 
-def _search(r, ev):
-    s = Search(r, ev)
+def _search(r, ev, edge_cache=None):
+    s = Search(r, ev, edge_cache)
     return s, s.run()
+
+
+def _corridor_possible(s, corridor, block):
+    """False only when no route can reach the destination through `corridor` while avoiding `block`,
+    so the extra search for it would explore the whole graph and find nothing."""
+    r = s.r
+    if r.get('resume') or r.get('start_at'):
+        return True   # mid-voyage plans start from a virtual node: always search
+    return GRAPH.can_reach_via(r['origin'], r['destination'], s.closed_zones | {block}, corridor)
 
 
 def _search_all_corridors(r, ev):
     """One open search, plus one search per major corridor so an alternative is always shown."""
-    s, finals = _search(r, ev)
+    cache = {}   # edge simulations do not depend on which corridor is blocked, so the searches share them
+    s, finals = _search(r, ev, cache)
     found = {corridor_of(f['label'].zones) for f in finals}
     for corridor, block in (('suez', 'cape'), ('cape', 'suez')):
-        if corridor not in found and block not in r['avoid_zones']:
-            _, extra = _search(dict(r, avoid_zones=list(r['avoid_zones']) + [block]), ev)
+        if corridor not in found and block not in r['avoid_zones'] and _corridor_possible(s, corridor, block):
+            _, extra = _search(dict(r, avoid_zones=list(r['avoid_zones']) + [block]), ev, cache)
             finals.extend(f for f in extra if corridor_of(f['label'].zones) == corridor)
     return s, finals
 
@@ -1160,6 +1209,23 @@ def _steps(lab):
     return out[::-1]
 
 
+# The plan "as if nothing had happened" is the same for every scenario toggle on the same ship and route, so it is
+# computed once and reused for a few minutes instead of being searched again each time (a copy is returned each time).
+_BASELINE = PlanCache(ttl_s=300, max_entries=16, slots=0, copy_result=True)
+
+
+def _baseline_plans(base_req, base_ev):
+    search, finals = _search_all_corridors(base_req, base_ev)
+    return [build_plan(f, search) for f in _choose(finals)]
+
+
+def _baseline_key(request, r):
+    """The no-events plan depends on the request without its events, the departure hour and the live weather snapshot in use."""
+    live = r.get('_live')
+    return (plan_key({k: v for k, v in request.items() if k != 'events'}, r['departure'])
+            + f"|live:{getattr(live, 'horizon_end', None)}|berth:{r['berth_source']}")
+
+
 def plan_voyage(request):
     r = normalize_request(request)
     ev = build_inputs(r, r['events'])
@@ -1256,10 +1322,7 @@ def plan_voyage(request):
         base_req = dict(r, events=[])
         if r['berth_source'] == 'congestion':
             base_req['berth_h'] = None
-        base_ev = build_inputs(r, [])
-        bsearch, bfinals = _search_all_corridors(base_req, base_ev)
-        bchosen = _choose(bfinals)
-        baseline_all = [build_plan(f, bsearch) for f in bchosen]
+        baseline_all, _ = _BASELINE.get_or_compute(_baseline_key(request, r), lambda: _baseline_plans(base_req, build_inputs(r, [])))
         baseline = baseline_all[0] if baseline_all else None
         storms = {st['id']: st for st in ev['storms']}
         blocking = set((result.get('infeasible') or {}).get('blocking_storms', []))
