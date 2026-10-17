@@ -151,6 +151,7 @@ function render() {
   syncDemoBar();
   if (state.ops) renderOps();
   renderOverview();
+  updateWarnings();
 }
 
 function renderStatus() {
@@ -436,6 +437,73 @@ function drawNetwork() {
   for (const e of state.network.edges) {
     g.appendChild(addTitle(svgEl('path', {d: pathString(e.points), fill: 'none', stroke: '#4f7aa3', 'stroke-width': .9, opacity: .45, 'stroke-dasharray': '3 4'}), `Network segment: ${portName(e.from)} – ${portName(e.to)}`));
   }
+}
+
+// ---- condition-change warnings: banner, pulsing map markers and a timeline (rules live in warnings.js)
+const WC = window.TLWarnings, warnCenter = WC.createCenter();
+const SEV_COLOR = {info: '#2563eb', warning: '#d97706', critical: '#dc2626'};
+let riskId = '', riskBase = null;
+function warningCauses() {
+  const plan = activePlan(), net = state.network, limit = shipObj()?.max_hs_m ?? 7;
+  const locOf = e => e.zone ? net.zones[e.zone]?.location : e.port ? net.ports[e.port]?.loc : e.center;
+  const events = buildEvents().filter(e => e.type !== 'news');   // headlines are handled by newsCauses
+  const weatherSource = state.plan?.weather?.used ? 'Open-Meteo marine forecast (live)' : 'Seasonal SAMPLE wave data (no live forecast)';
+  // Only news fetched for this route's regions counts as "on your route" (the first fetch happens before any route exists).
+  const newsForRoute = [...(state.news.regions || [])].sort().join(',') === routeRegions().join(',');
+  const causes = [...WC.scenarioCauses(events, limit, locOf),
+    ...WC.weatherCauses(plan.legs, limit, node => plan.checkpoints.find(c => c.node === node)?.loc, weatherSource),
+    ...(newsForRoute ? WC.newsCauses(state.news.articles, zoneLabel) : [])];
+  // Risk is compared with the first plan for this ship, route and conditions, so it clears when the cause clears.
+  const risk = Math.round(plan.summary.route_risk * 100), id = [state.ship, state.origin, state.destination, state.conditions, state.priority].join('|');
+  if (id !== riskId) { riskId = id; riskBase = null; }
+  if (riskBase == null) riskBase = risk;
+  const rc = WC.riskCause(riskBase, risk, !!state.plan?.change?.route_changed);
+  return rc ? [...causes, rc] : causes;
+}
+function updateWarnings() {
+  if (state.planStatus !== 'ok' || !state.network || !activePlan()) return;
+  let causes = warningCauses();
+  if (state.news.status === 'loading') causes = causes.concat(WC.active(warnCenter).filter(c => c.kind === 'news'));   // hold news warnings while the feed reloads
+  const r = WC.update(warnCenter, causes, new Date().toISOString());
+  if (r.raised.length || r.changed.length || r.cleared.length) renderCondLog();
+  renderBanner(); drawWarnMarkers();
+}
+function renderBanner() {
+  const el = $('condBanner'), b = WC.banner(warnCenter);
+  if (!b) { el.hidden = true; return; }
+  const open = WC.active(warnCenter).filter(c => warnCenter.dismissed[c.key] !== c.fp), risk = warnCenter.active['risk:route'];
+  const text = `Condition change: ${b.title}${b.detail ? ' · ' + b.detail : ''}${risk && b.key !== risk.key ? ' · ' + risk.detail : ''}`;
+  el.hidden = false; el.className = 'cond-banner sev-' + b.severity; el.dataset.key = b.key;
+  el.innerHTML = `<span class="cb-sev">${WC.SEVERITY[b.severity].icon} ${WC.SEVERITY[b.severity].label}</span><span class="cb-text">${esc(text)}</span>`
+    + `${open.length > 1 ? `<span class="cb-more">+${open.length - 1} more</span>` : ''}<span class="cb-src">Source: ${esc(b.source)}</span>`
+    + '<button type="button" class="cb-x" aria-label="Dismiss warning">✕</button>';
+}
+function drawWarnMarkers() {   // pulsing marker where the condition is; icon and colour both say how serious it is
+  let g = $('warnSvg'); if (!g) { g = svgEl('g', {id: 'warnSvg'}); $('portsSvg').after(g); }
+  g.innerHTML = '';
+  const k = TLMapView.markerScale(state.mapView, W);
+  for (const c of WC.active(warnCenter)) {
+    if (!c.loc) continue;
+    const [x, y] = project(c.loc), s = WC.SEVERITY[c.severity], col = SEV_COLOR[c.severity];
+    const m = svgEl('g', {transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${k.toFixed(3)})`, class: 'warn-marker'});
+    m.appendChild(svgEl('circle', {r: 15, fill: col, opacity: .28, class: 'warn-pulse'}));
+    m.appendChild(svgEl('circle', {r: 10, fill: '#fff', stroke: col, 'stroke-width': 2}));
+    const t = svgEl('text', {y: 4.5, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: col}); t.textContent = s.icon; m.appendChild(t);
+    g.appendChild(addTitle(m, `${s.label}: ${c.title}${c.detail ? ' · ' + c.detail : ''}\nSource: ${c.source}`));
+  }
+}
+function renderCondLog() {
+  const log = [...warnCenter.log].reverse(), words = {raised: 'Raised', changed: 'Changed', cleared: 'Cleared'};
+  $('condCount').textContent = log.length ? `(${log.length})` : '';
+  $('condList').innerHTML = log.length ? log.map(e => `<li class="sev-${e.severity} ev-${e.event}"><span class="cl-t">${esc(e.t.slice(11, 16))} UTC</span> <span class="cl-ev">${WC.SEVERITY[e.severity].icon} ${words[e.event]}</span> <b>${esc(e.title)}</b>${e.detail ? ' · ' + esc(e.detail) : ''}<small>Source: ${esc(e.source)}</small></li>`).join('')
+    : '<li class="cl-empty">No condition changes yet. Switch on a scenario to see one here.</li>';
+}
+function attachWarnings() {
+  $('condBanner').addEventListener('click', e => {
+    if (e.target.closest('.cb-x')) { WC.dismiss(warnCenter, e.currentTarget.dataset.key); renderBanner(); return; }
+    $('condLog').open = true; $('condLog').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  });
+  renderCondLog();
 }
 
 // Hazard overlay. Every marker pairs colour with a shape and a symbol, and the legend explains each one.
@@ -1049,7 +1117,7 @@ function zoomTo(w, ax, ay) { state.mapView = TLMapView.zoomView(state.mapView, w
 function zoom(factor) { zoomTo(state.mapView.w * factor); }
 function updateView() {
   const v = state.mapView; $('worldMap').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
-  moveVessels(); if (state.ais.on) drawAis();   // ship icons keep their on-screen size at every zoom
+  moveVessels(); if (state.ais.on) drawAis(); drawWarnMarkers();   // ship icons keep their on-screen size at every zoom
 }
 function timeTick() {
   const d = new Date();
@@ -1933,7 +2001,7 @@ async function init() {
     attachOps();
     attachCalibration();
     attachShell();
-    attachSim();
+    attachSim(); attachWarnings();
     syncProgress();
     schedulePlan(0);
     pullNews();
