@@ -4,7 +4,9 @@
 
 > **One sentence:** A decision-support dashboard that compares maritime trade corridors using modeled ship economics, forecast marine conditions, and headline-based risk signals, then proposes diversions when routes become infeasible.
 
-![Tideline dashboard](demo-screenshot.png)
+![Tideline dashboard]
+<img width="1468" height="769" alt="image" src="https://github.com/user-attachments/assets/6ad2060d-f5e5-4893-82f0-5be9d4cadb8a" />
+
 
 ## Run it locally (no installs, no paid API keys)
 
